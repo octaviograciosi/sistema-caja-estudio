@@ -96,7 +96,8 @@ export function crearApp(db, opts = {}) {
   });
   app.get('/api/categorias', (_req, res) => res.json(db.prepare('SELECT * FROM categorias ORDER BY id').all()));
 
-  app.get('/api/cajas/:id/movimientos', soloAdmin, conCaja, (req, res) => {
+  // Historial de lectura: lo ven también los operadores de la caja (cargar/editar/eliminar sigue siendo sólo admin).
+  app.get('/api/cajas/:id/movimientos', conCaja, (req, res) => {
     const { desde, hasta, q } = req.query;
     const rows = db.prepare(`SELECT m.*, c.nombre categoria,
         SUM(m.importe) OVER (ORDER BY m.fecha, m.orden, m.id) saldo

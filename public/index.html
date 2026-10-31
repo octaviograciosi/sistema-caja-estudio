@@ -87,11 +87,11 @@ async function login(){
     try{if(!hayUsuarios)await api('/usuarios',{method:'POST',body:b});await api('/login',{method:'POST',body:b});init()}
     catch(e){$('#err').textContent=e.message}};
 }
-async function init(){yo=await api('/me');if(!yo)return;if(yo.rol!=='admin'&&!['cierre','rend'].includes(vista))vista='cierre';cajas=await api('/cajas');cats=await api('/categorias');cajaId=cajas.some(x=>x.id===cajaId)?cajaId:cajas[0]?.id;render()}
+async function init(){yo=await api('/me');if(!yo)return;if(yo.rol!=='admin'&&!['mov','cierre','rend'].includes(vista))vista='mov';cajas=await api('/cajas');cats=await api('/categorias');cajaId=cajas.some(x=>x.id===cajaId)?cajaId:cajas[0]?.id;render()}
 function render(){
   const c=cajas.find(x=>x.id===cajaId);
   if(!c&&vista!=='usr')return app.innerHTML='<div class="card">No tenés cajas asignadas. Pedile acceso al administrador. <button id="out">Salir</button></div>',$('#out').onclick=salir;
-  const TABS=yo.rol==='admin'?[['mov','Movimientos'],['cierre','Cierre de caja'],['rend','Rendiciones'],['rep','Gastos por mes'],['usr','Usuarios']]:[['cierre','Cierre de caja'],['rend','Rendiciones']];
+  const TABS=yo.rol==='admin'?[['mov','Movimientos'],['cierre','Cierre de caja'],['rend','Rendiciones'],['rep','Gastos por mes'],['usr','Usuarios']]:[['mov','Movimientos'],['cierre','Cierre de caja'],['rend','Rendiciones']];
   const kp=(l,v)=>`<div class="kpi"><small>${l}</small><b>${v}</b></div>`;
   app.innerHTML=`<header class="top"><div class="bar"><div class="brand">Caja<i>·</i>Estudio</div>
   <nav class="links">${TABS.map(([k,l])=>`<button class="${vista===k?'on':''}" data-v="${k}">${l}</button>`).join('')}</nav>
@@ -106,13 +106,14 @@ function render(){
 }
 async function vMov(c){
   const hoy=new Date().toISOString().slice(0,10);
-  $('#vista').innerHTML=`<div class="card"><div class="row">
+  const adm=yo.rol==='admin';
+  $('#vista').innerHTML=(adm?`<div class="card"><div class="row">
    <label>Fecha<input type="date" id="f" value="${hoy}"></label>
    <label>Tipo<select id="t"><option value="1">Ingreso</option><option value="-1">Egreso</option></select></label>
    <label style="flex:3 1 240px">Concepto<input id="c" style="width:100%;box-sizing:border-box"></label>
    <label>Importe ($)<input id="i" inputmode="decimal"></label>
    <label>Tipo de egreso<select id="k"><option value="">—</option>${cats.map(k=>`<option value="${k.id}">${esc(k.nombre)}</option>`).join('')}</select></label>
-   <button class="p" id="add">Agregar</button></div><p id="err" class="eg"></p></div>
+   <button class="p" id="add">Agregar</button></div><p id="err" class="eg"></p></div>`:'')+`
    <div class="card"><div class="row"><input id="q" placeholder="Buscar concepto…"><label>Desde<input type="date" id="d"></label><label>Hasta<input type="date" id="h"></label></div>
    <div class="tw"><table><thead><tr><th>Fecha</th><th>Concepto</th><th>Tipo egreso</th><th class="n">Ingreso</th><th class="n">Egreso</th><th class="n">Saldo</th><th></th></tr></thead><tbody id="tb"></tbody></table></div></div>`;
   const load=async()=>{const p=new URLSearchParams({q:$('#q').value,desde:$('#d').value,hasta:$('#h').value});
@@ -126,7 +127,7 @@ async function vMov(c){
       $('#k').value=r.categoria_id||'';$('#add').textContent='Guardar cambios';scrollTo(0,0)});
     $('#tb').querySelectorAll('[data-x]').forEach(b=>b.onclick=async()=>{if(confirm('¿Eliminar movimiento?')){await api('/movimientos/'+b.dataset.x,{method:'DELETE'});cajas=await api('/cajas');render()}})};
   ['q','d','h'].forEach(i=>$('#'+i).oninput=load);
-  $('#add').onclick=async()=>{try{
+  if(adm)$('#add').onclick=async()=>{try{
     const n=Math.round(parseFloat($('#i').value.replace(/\./g,'').replace(',','.'))*100);
     if(!n||n<0)throw new Error('Importe inválido');const s=+$('#t').value;
     const body={fecha:$('#f').value,concepto:$('#c').value,importe:n*s,categoria_id:s<0&&$('#k').value?+$('#k').value:null};
