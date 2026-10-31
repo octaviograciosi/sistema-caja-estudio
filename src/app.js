@@ -82,8 +82,12 @@ export function crearApp(db) {
 
   app.get('/api/cajas', (req, res) => {
     const ids = cajasDe(db, req.usuario);
-    res.json(db.prepare(`SELECT c.id, c.nombre, COALESCE(SUM(m.importe),0) saldo
-      FROM cajas c LEFT JOIN movimientos m ON m.caja_id = c.id GROUP BY c.id`).all().filter((c) => ids.includes(c.id)));
+    const mes = "substr(m.fecha,1,7) = strftime('%Y-%m','now')";
+    res.json(db.prepare(`SELECT c.id, c.nombre, COALESCE(SUM(m.importe),0) saldo, COUNT(m.id) movimientos,
+        COALESCE(SUM(CASE WHEN m.importe > 0 AND ${mes} THEN m.importe END),0) ingresos_mes,
+        COALESCE(-SUM(CASE WHEN m.importe < 0 AND ${mes} AND COALESCE(k.nombre,'') NOT IN ('Rendiciones','Extracciones') THEN m.importe END),0) gastos_mes
+      FROM cajas c LEFT JOIN movimientos m ON m.caja_id = c.id LEFT JOIN categorias k ON k.id = m.categoria_id
+      GROUP BY c.id`).all().filter((c) => ids.includes(c.id)));
   });
   app.get('/api/categorias', (_req, res) => res.json(db.prepare('SELECT * FROM categorias ORDER BY id').all()));
 
