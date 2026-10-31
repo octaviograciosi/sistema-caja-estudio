@@ -4,7 +4,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap">
 <style>
 /* Estructura de panel: barra superior oscura, encabezado con cifras, menú lateral y tarjetas sobre gris claro. Azul de Ualá para acciones. */
-:root{--bg:#e9edf0;--fg:#1f2326;--card:#fff;--mut:#5f6872;--bd:#d9dee3;--row:#f1f3f5;--row-hover:#e4e8ec;--ac:#0054ea;--ac2:#022a9a;--soft:#e0edff;--soft-fg:#022a9a;--ok:#0f7b4f;--ko:#d6221f;--shell:#232426;--shell2:#1b1c1e;--shell-fg:#f2f3f4;--shell-mut:#a9aeb3;--or:#f08a24}
+:root{--bg:#e9edf0;--fg:#1f2326;--card:#fff;--mut:#5f6872;--bd:#d9dee3;--row:#f4f4f4;--row-hover:#e4e8ec;--ac:#0054ea;--ac2:#022a9a;--soft:#e0edff;--soft-fg:#022a9a;--ok:#0f7b4f;--ko:#d6221f;--shell:#232426;--shell2:#1b1c1e;--shell-fg:#f2f3f4;--shell-mut:#a9aeb3;--or:#082043}
 @media(prefers-color-scheme:dark){:root{--bg:#141618;--fg:#eceef0;--card:#1f2226;--mut:#9aa3ab;--bd:#2d3237;--row:#262b30;--row-hover:#303740;--ac:#4591ff;--ac2:#4591ff;--soft:#17306b;--soft-fg:#c7d8fa;--ok:#4cd391;--ko:#ff7a85;--shell:#1a1b1d;--shell2:#111213;color-scheme:dark}}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 :root{--ease-out:cubic-bezier(0.23,1,0.32,1)}
@@ -12,10 +12,10 @@ body{margin:0;font:14px/1.5 'Public Sans',system-ui,sans-serif;background:var(--
 .bar{max-width:1240px;margin:0 auto;padding:0 20px;display:flex;align-items:center;gap:24px}
 .top{background:var(--shell2);color:var(--shell-fg)}
 .top .bar{height:56px;justify-content:space-between}
-.brand{font-weight:700;font-size:18px;letter-spacing:-.01em;white-space:nowrap}.brand i{font-style:normal;color:var(--or)}
+.brand{font-weight:700;font-size:18px;letter-spacing:-.01em;white-space:nowrap}.brand i{font-style:normal}
 .links{display:flex;gap:4px;align-self:stretch;overflow-x:auto}
 .links button{border:0;background:none;border-radius:0;color:var(--shell-mut);padding:0 12px;font-size:13px;font-weight:500;border-bottom:3px solid transparent;white-space:nowrap}
-.links button.on{color:#fff;font-weight:600;border-bottom-color:var(--or)}
+.links button.on{color:#fff;font-weight:600;border-bottom-color:#fff}
 .who{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--shell-mut);white-space:nowrap}
 .who button{background:none;border:1px solid #4a4d51;color:#fff;border-radius:6px;padding:4px 12px}
 .hero{background:var(--shell);color:var(--shell-fg);border-top:1px solid #34363a}
@@ -28,12 +28,12 @@ body{margin:0;font:14px/1.5 'Public Sans',system-ui,sans-serif;background:var(--
 .side h4{margin:10px 20px 6px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em}
 .side button{all:unset;box-sizing:border-box;display:block;width:100%;cursor:pointer;padding:9px 20px;font-size:13px;border-left:3px solid transparent}
 .side button small{display:block;font-size:12px;opacity:.7;font-variant-numeric:tabular-nums}
-.side button.on{color:#fff;font-weight:600;border-left-color:var(--or)}
+.side button.on{color:#fff;font-weight:600;border-left-color:#fff}
 .main{padding:22px 20px 40px;min-width:0}
 .sec{margin:0 0 14px;font-size:18px;font-weight:600}
 .card{background:var(--card);border:1px solid var(--bd);border-radius:6px;padding:16px;margin-bottom:16px;box-shadow:0 1px 2px rgba(20,25,30,.06)}
 .card h3{margin:0 0 12px;font-size:15px}
-:focus-visible{outline:3px solid var(--or);outline-offset:2px}
+:focus-visible{outline:3px solid var(--ac);outline-offset:2px}
 button,input,select{font:inherit;padding:8px 11px;border-radius:6px;border:1px solid var(--bd);background:var(--card);color:var(--fg)}
 input:focus,select:focus{border-color:var(--ac)}
 button{cursor:pointer;font-weight:500;touch-action:manipulation;transition:transform 160ms var(--ease-out),background-color 150ms ease,border-color 150ms ease,color 150ms ease}
@@ -57,7 +57,7 @@ td button{padding:3px 8px}
   .shell{grid-template-columns:minmax(0,1fr)}
   .side{min-height:0;padding:0;display:flex;overflow-x:auto}.side h4{display:none}
   .side button{width:auto;white-space:nowrap;border-left:0;border-bottom:3px solid transparent;padding:10px 16px}
-  .side button.on{border-bottom-color:var(--or)}
+  .side button.on{border-bottom-color:#fff}
   .top .bar{flex-wrap:wrap;height:auto;gap:0 12px;padding:10px 12px 0}.links{order:3;width:100%;margin:0 -4px}.links button{padding:12px 12px}.who span{display:none}.main{padding:16px 12px 32px}
   .hero .bar{padding-left:16px;padding-right:16px}.kpis{gap:20px 28px}
 }
