@@ -33,7 +33,8 @@ test('flujo: usuario, movimientos, saldo, cierre y reporte', async () => {
     assert.equal((await j('/cajas/2/movimientos', { method: 'POST', body: { fecha: '2026-06-02', concepto: 'x', importe: 100 } }, ck2)).status, 403);
     assert.equal((await j('/reportes/gastos-por-mes?caja_id=2', {}, ck2)).status, 403);
     assert.deepEqual(Object.keys((await (await j('/cajas', {}, ck2)).json())[0]).sort(), ['id', 'nombre', 'saldo']);
-    assert.deepEqual(Object.keys(await (await j('/cajas/2/rendicion/preview', {}, ck2)).json()).sort(), ['caja', 'desde', 'destinatarios', 'saldo']);
+    const pvOp = await (await j('/cajas/2/rendicion/preview', {}, ck2)).json();
+    assert.ok(Array.isArray(pvOp.movimientos) && pvOp.movimientos.every((m) => Object.keys(m).sort().join() === 'concepto,fecha,id,importe'));
     assert.equal((await j('/cajas/2/cierres', { method: 'POST', body: { fecha: '2026-06-03', saldo_contado: 0 } }, ck2)).status, 200);
     assert.equal((await j('/movimientos/1', { method: 'DELETE' }, ck2)).status, 403);
     assert.equal((await j('/movimientos/' + id1, { method: 'PUT', body: { fecha: '2026-06-02', concepto: 'x', importe: 1 } }, ck2)).status, 403);

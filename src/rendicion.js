@@ -14,12 +14,14 @@ export function previsualizar(db, cajaId) {
   const desde = todos.slice(ultima + 1);
   const ingresos = desde.filter((m) => m.importe > 0);
   const egresos = desde.filter((m) => m.importe < 0);
+  const saldo = todos.reduce((a, m) => a + m.importe, 0);
+  const total_ingresos = ingresos.reduce((a, m) => a + m.importe, 0);
+  const total_egresos = -egresos.reduce((a, m) => a + m.importe, 0);
   return {
     caja, desde: ultima >= 0 ? todos[ultima].fecha : null,
-    saldo: todos.reduce((a, m) => a + m.importe, 0),
-    ingresos, egresos,
-    total_ingresos: ingresos.reduce((a, m) => a + m.importe, 0),
-    total_egresos: -egresos.reduce((a, m) => a + m.importe, 0),
+    saldo,
+    saldo_anterior: saldo - (total_ingresos - total_egresos),
+    periodo: desde, ingresos, egresos, total_ingresos, total_egresos,
   };
 }
 
@@ -37,6 +39,10 @@ export function armarEmail({ pv, importe, fecha, usuario, nota }) {
     `Se realizó la rendición de ${nombre.toLowerCase()} del ${fechaAR(fecha)} por ${pesos(importe)}.`,
     ...(nota ? ['', `Nota: ${nota}`] : []), '',
     `Saldo de caja antes: ${pesos(pv.saldo)}`, `Importe rendido: ${pesos(importe)}`, `Saldo de caja después: ${pesos(restante)}`, '',
+    'Cómo se compone el saldo:',
+    `  Saldo anterior ${pv.desde ? 'a la última rendición' : '(inicio)'}: ${pesos(pv.saldo_anterior)}`,
+    `  + Cobros del período: ${pesos(pv.total_ingresos)}`, `  - Egresos del período: ${pesos(pv.total_egresos)}`,
+    `  = Saldo actual: ${pesos(pv.saldo)}`, '',
     `Cobros desde ${pv.desde ? 'la última rendición (' + fechaAR(pv.desde) + ')' : 'el inicio'}: ${pesos(pv.total_ingresos)}`,
     ...ing.map((m) => `  ${m.f}  ${m.c}  ${m.i}`), recorte(pv.ingresos, MAX_FILAS), '',
     `Egresos en el período: ${pesos(pv.total_egresos)}`,
@@ -48,6 +54,7 @@ export function armarEmail({ pv, importe, fecha, usuario, nota }) {
   const html = `<div style="font-family:Arial,sans-serif;font-size:15px;color:#1f2326"><p>${saludo},</p>
 <p>Se realizó la rendición de <b>${esc(nombre.toLowerCase())}</b> del ${fechaAR(fecha)} por <b>${pesos(importe)}</b>.</p>${nota ? `<p>Nota: ${esc(nota)}</p>` : ''}
 <p>Saldo de caja antes: ${pesos(pv.saldo)}<br>Importe rendido: <b>${pesos(importe)}</b><br>Saldo de caja después: ${pesos(restante)}</p>
+<p>Cómo se compone el saldo:<br>Saldo anterior ${pv.desde ? 'a la última rendición' : '(inicio)'}: ${pesos(pv.saldo_anterior)}<br>+ Cobros del período: ${pesos(pv.total_ingresos)}<br>− Egresos del período: ${pesos(pv.total_egresos)}<br><b>= Saldo actual: ${pesos(pv.saldo)}</b></p>
 <p><b>Cobros</b> desde ${pv.desde ? 'la última rendición (' + fechaAR(pv.desde) + ')' : 'el inicio'}: ${pesos(pv.total_ingresos)}</p>${tabla(ing)}<small>${recorte(pv.ingresos, MAX_FILAS)}</small>
 <p><b>Egresos</b> en el período: ${pesos(pv.total_egresos)}</p>${tabla(egr)}<small>${recorte(pv.egresos, MAX_FILAS)}</small>
 <p>Por favor responder <b>"recibido"</b> a este email para dejar constancia.</p><p style="color:#5f6872;font-size:13px">Registrada por ${esc(usuario)} en Sistema Caja Estudio.</p></div>`;

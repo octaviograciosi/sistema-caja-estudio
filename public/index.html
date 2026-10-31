@@ -49,6 +49,8 @@ td button{padding:3px 8px}
 .pill{display:inline-block;background:var(--soft);color:var(--soft-fg);border-radius:10px;padding:1px 9px;font-size:12px;font-weight:600}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}.row>*{flex:1 1 150px}.row label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--mut)}
 .mut{color:var(--mut)}.tw{overflow-x:auto}
+.lista{max-height:420px;overflow:auto}.lista thead th{position:sticky;top:0;background:var(--card)}
+.cuenta{max-width:460px;margin:14px 0 0 auto}.cuenta td,.cuenta th{border-bottom:1px solid var(--bd);padding:6px}.cuenta tbody tr:nth-child(even){background:none}
 @media(hover:hover) and (pointer:fine){.links button:hover,.side button:hover{color:#fff}button.p:hover{background:var(--ac2);border-color:var(--ac2)}tbody tr:hover{background:var(--row-hover)}}
 @media(pointer:coarse){td button{padding:9px 13px}.links button,.side button{min-height:44px}.who button{padding:9px 14px}}
 @media(prefers-reduced-motion:reduce){button{transition:background-color 150ms ease,border-color 150ms ease,color 150ms ease}button:active{transform:none}}
@@ -140,27 +142,36 @@ async function vCierre(c){
 async function vRend(c){
   const [h,pv]=await Promise.all([api(`/cajas/${c.id}/rendiciones`),api(`/cajas/${c.id}/rendicion/preview`)]);
   const av=aviso;aviso='';
-  const adm=yo.rol==='admin',nom=c.nombre.toLowerCase(),neto=adm?pv.total_ingresos-pv.total_egresos:pv.saldo,sug=neto>0&&neto<=pv.saldo?neto:pv.saldo;
+  const nom=c.nombre.toLowerCase(),neto=pv.total_ingresos-pv.total_egresos,sug=neto>0&&neto<=pv.saldo?neto:pv.saldo;
   const num=(v)=>String(v/100).replace('.',','),parse=(t)=>Math.round(parseFloat(t.replace(/\./g,'').replace(',','.'))*100);
   const f=(d)=>d.split('-').reverse().join('/');
-  $('#vista').innerHTML=av+`<div class="card"><h3>Realizar rendición de ${esc(nom)}</h3>
-   <p class="mut">Registra el retiro en la caja y envía un email automático a: <b>${pv.destinatarios.map(esc).join(', ')||'(sin destinatarios configurados)'}</b>. Respondé "recibido" a ese email para dejar constancia.</p>
-   <p>${adm?`Desde ${pv.desde?'la última rendición ('+f(pv.desde)+')':'el inicio'}: <span class="in">${fmt(pv.total_ingresos)}</span> en ${pv.ingresos} cobros y <span class="eg">${fmt(pv.total_egresos)}</span> en ${pv.egresos} egresos. `:''}Saldo actual: <b>${fmt(pv.saldo)}</b>.</p>
+  const desde=pv.desde?'la última rendición ('+f(pv.desde)+')':'el inicio';
+  $('#vista').innerHTML=av+`<div class="card"><h3>Operaciones que componen la rendición</h3>
+   <p class="mut">Movimientos desde ${desde}. Son los mismos que van detallados en el email.</p>
+   <div class="tw lista"><table><thead><tr><th>Fecha</th><th>Concepto</th><th class="n">Ingreso</th><th class="n">Egreso</th></tr></thead><tbody>
+   ${pv.movimientos.map(m=>`<tr><td>${f(m.fecha)}</td><td>${esc(m.concepto)}</td><td class="n in">${m.importe>0?fmt(m.importe):''}</td><td class="n eg">${m.importe<0?fmt(-m.importe):''}</td></tr>`).join('')||'<tr><td colspan="4" class="mut">No hay movimientos desde la última rendición.</td></tr>'}</tbody></table></div>
+   ${pv.truncado?'<p class="mut">Se muestran los últimos 500 movimientos del período.</p>':''}
+   <table class="cuenta"><tbody><tr><td>Saldo anterior ${pv.desde?'a la última rendición':'(inicio)'}</td><td class="n">${fmt(pv.saldo_anterior)}</td></tr>
+   <tr><td>+ Cobros del período (${pv.n_ingresos})</td><td class="n in">${fmt(pv.total_ingresos)}</td></tr>
+   <tr><td>− Egresos del período (${pv.n_egresos})</td><td class="n eg">${fmt(pv.total_egresos)}</td></tr>
+   <tr><th>= Saldo actual de la caja</th><th class="n">${fmt(pv.saldo)}</th></tr></tbody></table></div>
+   <div class="card"><h3>Realizar rendición de ${esc(nom)}</h3>
+   <p class="mut">Registra el retiro en la caja y envía un email automático con el detalle a: <b>${pv.destinatarios.map(esc).join(', ')||'(sin destinatarios configurados)'}</b>. Respondé "recibido" a ese email para dejar constancia.</p>
    <div class="row"><label>Importe a rendir ($)<input id="ri" inputmode="decimal" value="${num(sug)}"></label>
    <label style="flex:2 1 220px">Nota (opcional)<input id="rn" maxlength="200" placeholder="Ej.: semana del 26/10"></label></div>
-   <p>${adm?'<button id="r1">Movimiento del período</button> ':''}<button id="r2">Todo el saldo</button></p>
+   <p><button id="r1">Movimientos del período</button> <button id="r2">Todo el saldo</button></p>
    <p id="rm" class="eg" role="status"></p><button class="p" id="rgo">Enviar rendición</button></div>
    <div class="card"><h3>Rendiciones enviadas</h3><div class="tw"><table><thead><tr><th>Fecha</th><th class="n">Importe</th><th>Enviada a</th><th>Registró</th><th>Estado</th><th></th></tr></thead><tbody>
    ${h.map(r=>`<tr><td>${f(r.fecha)}</td><td class="n">${fmt(r.importe)}</td><td class="mut">${esc(r.enviada_a)}</td><td>${esc(r.usuario||'')}</td>
    <td><span class="pill ${r.estado==='recibida'?'ok':''}">${r.estado==='recibida'?'Recibida':'Enviada'}</span></td>
    <td>${yo.rol==='admin'&&r.estado==='enviada'?`<button data-ok="${r.id}">Marcar recibida</button>`:''}</td></tr>`).join('')||'<tr><td colspan="6" class="mut">Todavía no hay rendiciones registradas desde el sistema.</td></tr>'}</tbody></table></div></div>`;
-  if(adm)$('#r1').onclick=()=>$('#ri').value=num(neto>0?neto:pv.saldo);$('#r2').onclick=()=>$('#ri').value=num(pv.saldo);
+  $('#r1').onclick=()=>$('#ri').value=num(neto>0&&neto<=pv.saldo?neto:pv.saldo);$('#r2').onclick=()=>$('#ri').value=num(pv.saldo);
   document.querySelectorAll('[data-ok]').forEach(b=>b.onclick=async()=>{await api('/rendiciones/'+b.dataset.ok+'/recibida',{method:'POST'});vRend(c)});
   let pendiente=false;const go=$('#rgo'),msg=$('#rm');
   $('#ri').oninput=()=>{pendiente=false;go.textContent='Enviar rendición';msg.textContent=''};
   go.onclick=async()=>{const imp=parse($('#ri').value);
     if(!imp||imp<=0)return msg.textContent='Ingresá un importe válido.';
-    if(!pendiente){pendiente=true;go.textContent='Confirmar y enviar';msg.className='mut';return msg.textContent=`Se enviará el email y se retirarán ${fmt(imp)} de la caja. Tocá de nuevo para confirmar.`}
+    if(!pendiente){pendiente=true;go.textContent='Confirmar y enviar';msg.className='mut';return msg.textContent=`Se enviará el email con las ${pv.movimientos.length} operaciones y se retirarán ${fmt(imp)} de la caja. Tocá de nuevo para confirmar.`}
     go.disabled=true;msg.className='mut';msg.textContent='Enviando…';
     try{const r=await api(`/cajas/${c.id}/rendicion`,{method:'POST',body:{importe:imp,nota:$('#rn').value}});
       aviso=`<div class="card" role="status"><span class="pill ok">Enviada</span> Rendición registrada y email enviado a ${r.enviada_a.map(esc).join(', ')}.</div>`;cajas=await api('/cajas');render()}

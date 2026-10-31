@@ -22,14 +22,14 @@ test('rendición: envía email, registra el retiro y respeta el saldo', async ()
     await mov({ fecha: '2026-10-01', concepto: 'COBRO UNO', importe: 1000000 });
     await mov({ fecha: '2026-10-02', concepto: 'GASTO LIBRERIA', importe: -100000, categoria_id: 6 });
     const pv = await (await j('/cajas/1/rendicion/preview', {}, ck)).json();
-    assert.equal(pv.saldo, 900000); assert.equal(pv.ingresos, 1); assert.equal(pv.destinatarios.length, 3);
+    assert.equal(pv.saldo, 900000); assert.equal(pv.n_ingresos, 1); assert.equal(pv.movimientos.length, 2); assert.equal(pv.saldo_anterior, 0); assert.equal(pv.destinatarios.length, 3);
     assert.equal((await j('/cajas/1/rendicion', { method: 'POST', body: { importe: 900001 } }, ck)).status, 400);
     const r = await j('/cajas/1/rendicion', { method: 'POST', body: { importe: 900000, nota: 'semana 1' } }, ck);
     assert.equal(r.status, 201);
     assert.equal(enviados.length, 1);
     assert.deepEqual(enviados[0].to, dest.to); assert.deepEqual(enviados[0].cc, dest.cc);
     assert.match(enviados[0].subject, /^Rendición de honorarios - \d\d\/\d\d\/\d{4}$/);
-    assert.match(enviados[0].text, /COBRO UNO/); assert.match(enviados[0].text, /recibido/);
+    assert.match(enviados[0].text, /COBRO UNO/); assert.match(enviados[0].text, /Saldo anterior/); assert.match(enviados[0].text, /recibido/);
     const lista = await (await j('/cajas/1/movimientos', {}, ck)).json();
     assert.equal(lista[0].importe, -900000); assert.equal(lista[0].categoria, 'Rendiciones'); assert.equal(lista[0].saldo, 0);
     const h = await (await j('/cajas/1/rendiciones', {}, ck)).json();
@@ -38,7 +38,7 @@ test('rendición: envía email, registra el retiro y respeta el saldo', async ()
     // la siguiente vista parte de la última rendición
     await mov({ fecha: hoyAR(), concepto: 'COBRO DOS', importe: 50000 });
     const pv2 = await (await j('/cajas/1/rendicion/preview', {}, ck)).json();
-    assert.equal(pv2.ingresos, 1); assert.equal(pv2.total_ingresos, 50000);
+    assert.equal(pv2.n_ingresos, 1); assert.equal(pv2.total_ingresos, 50000); assert.equal(pv2.saldo_anterior, 0); assert.equal(pv2.movimientos.length, 1);
   } finally { srv.close(); }
 });
 

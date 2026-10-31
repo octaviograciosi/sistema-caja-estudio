@@ -150,9 +150,10 @@ export function crearApp(db, opts = {}) {
 
   // Rendición: registra el retiro en la caja y avisa por email (casilla genérica) a los destinatarios.
   app.get('/api/cajas/:id/rendicion/preview', conCaja, (req, res) => {
-    const pv = previsualizar(db, req.cajaId), destinatarios = [...dest.to, ...dest.cc];
-    if (req.usuario.rol !== 'admin') return res.json({ caja: pv.caja, desde: pv.desde, saldo: pv.saldo, destinatarios });
-    res.json({ ...pv, ingresos: pv.ingresos.length, egresos: pv.egresos.length, destinatarios });
+    const { periodo, ingresos, egresos, ...pv } = previsualizar(db, req.cajaId);
+    // Operaciones que componen la rendición (desde la última), para todos los roles que rinden.
+    res.json({ ...pv, n_ingresos: ingresos.length, n_egresos: egresos.length, destinatarios: [...dest.to, ...dest.cc],
+      movimientos: periodo.slice(-500).map(({ id, fecha, concepto, importe }) => ({ id, fecha, concepto, importe })), truncado: periodo.length > 500 });
   });
   app.get('/api/cajas/:id/rendiciones', conCaja, (req, res) => {
     res.json(db.prepare(`SELECT r.*, u.nombre usuario FROM rendiciones r LEFT JOIN usuarios u ON u.id = r.usuario_id
