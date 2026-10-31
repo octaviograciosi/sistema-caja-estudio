@@ -91,11 +91,12 @@ export function crearApp(db, opts = {}) {
         COALESCE(SUM(CASE WHEN m.importe > 0 AND ${mes} THEN m.importe END),0) ingresos_mes,
         COALESCE(-SUM(CASE WHEN m.importe < 0 AND ${mes} AND COALESCE(k.nombre,'') NOT IN ('Rendiciones','Extracciones') THEN m.importe END),0) gastos_mes
       FROM cajas c LEFT JOIN movimientos m ON m.caja_id = c.id LEFT JOIN categorias k ON k.id = m.categoria_id
-      GROUP BY c.id`).all().filter((c) => ids.includes(c.id)));
+      GROUP BY c.id`).all().filter((c) => ids.includes(c.id))
+      .map((c) => (req.usuario.rol === 'admin' ? c : { id: c.id, nombre: c.nombre, saldo: c.saldo })));
   });
   app.get('/api/categorias', (_req, res) => res.json(db.prepare('SELECT * FROM categorias ORDER BY id').all()));
 
-  app.get('/api/cajas/:id/movimientos', conCaja, (req, res) => {
+  app.get('/api/cajas/:id/movimientos', soloAdmin, conCaja, (req, res) => {
     const { desde, hasta, q } = req.query;
     const rows = db.prepare(`SELECT m.*, c.nombre categoria,
         SUM(m.importe) OVER (ORDER BY m.fecha, m.orden, m.id) saldo
@@ -106,7 +107,7 @@ export function crearApp(db, opts = {}) {
       && (!q || r.concepto.toLowerCase().includes(String(q).toLowerCase()))).reverse().slice(0, 1000));
   });
 
-  app.post('/api/cajas/:id/movimientos', conCaja, (req, res) => {
+  app.post('/api/cajas/:id/movimientos', soloAdmin, conCaja, (req, res) => {
     const { fecha, concepto, importe, categoria_id } = req.body || {};
     if (!FECHA.test(fecha || '') || !concepto?.trim() || !Number.isInteger(importe) || importe === 0) {
       return res.status(400).json({ error: 'fecha (YYYY-MM-DD), concepto e importe (centavos, entero ≠ 0) requeridos' });
@@ -149,8 +150,9 @@ export function crearApp(db, opts = {}) {
 
   // Rendición: registra el retiro en la caja y avisa por email (casilla genérica) a los destinatarios.
   app.get('/api/cajas/:id/rendicion/preview', conCaja, (req, res) => {
-    const pv = previsualizar(db, req.cajaId);
-    res.json({ ...pv, ingresos: pv.ingresos.length, egresos: pv.egresos.length, destinatarios: [...dest.to, ...dest.cc] });
+    const pv = previsualizar(db, req.cajaId), destinatarios = [...dest.to, ...dest.cc];
+    if (req.usuario.rol !== 'admin') return res.json({ caja: pv.caja, desde: pv.desde, saldo: pv.saldo, destinatarios });
+    res.json({ ...pv, ingresos: pv.ingresos.length, egresos: pv.egresos.length, destinatarios });
   });
   app.get('/api/cajas/:id/rendiciones', conCaja, (req, res) => {
     res.json(db.prepare(`SELECT r.*, u.nombre usuario FROM rendiciones r LEFT JOIN usuarios u ON u.id = r.usuario_id
@@ -181,7 +183,7 @@ export function crearApp(db, opts = {}) {
     res.status(r.changes ? 200 : 404).json({ ok: !!r.changes });
   });
 
-  app.get('/api/reportes/gastos-por-mes', conCaja, (req, res) => {
+  app.get('/api/reportes/gastos-por-mes', soloAdmin, conCaja, (req, res) => {
     res.json(db.prepare(`SELECT substr(m.fecha,1,7) mes, COALESCE(c.nombre,'Sin tipo') categoria, -SUM(m.importe) total
       FROM movimientos m LEFT JOIN categorias c ON c.id = m.categoria_id
       WHERE m.importe < 0 AND m.caja_id = ? AND COALESCE(c.nombre,'') NOT IN ('Rendiciones','Extracciones') -- retiros de caja, no gastos

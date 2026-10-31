@@ -29,6 +29,12 @@ test('flujo: usuario, movimientos, saldo, cierre y reporte', async () => {
     const ck2 = (await j('/login', { method: 'POST', body: { nombre: 'luis', password: 'clave123' } })).headers.get('set-cookie').split(';')[0];
     assert.deepEqual((await (await j('/cajas', {}, ck2)).json()).map((c) => c.id), [2]);
     assert.equal((await j('/cajas/1/movimientos', {}, ck2)).status, 403);
+    assert.equal((await j('/cajas/2/movimientos', {}, ck2)).status, 403);
+    assert.equal((await j('/cajas/2/movimientos', { method: 'POST', body: { fecha: '2026-06-02', concepto: 'x', importe: 100 } }, ck2)).status, 403);
+    assert.equal((await j('/reportes/gastos-por-mes?caja_id=2', {}, ck2)).status, 403);
+    assert.deepEqual(Object.keys((await (await j('/cajas', {}, ck2)).json())[0]).sort(), ['id', 'nombre', 'saldo']);
+    assert.deepEqual(Object.keys(await (await j('/cajas/2/rendicion/preview', {}, ck2)).json()).sort(), ['caja', 'desde', 'destinatarios', 'saldo']);
+    assert.equal((await j('/cajas/2/cierres', { method: 'POST', body: { fecha: '2026-06-03', saldo_contado: 0 } }, ck2)).status, 200);
     assert.equal((await j('/movimientos/1', { method: 'DELETE' }, ck2)).status, 403);
     assert.equal((await j('/movimientos/' + id1, { method: 'PUT', body: { fecha: '2026-06-02', concepto: 'x', importe: 1 } }, ck2)).status, 403);
     assert.equal((await j('/usuarios', {}, ck2)).status, 403);

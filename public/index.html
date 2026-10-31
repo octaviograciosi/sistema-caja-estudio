@@ -81,16 +81,16 @@ async function login(){
     try{if(!hayUsuarios)await api('/usuarios',{method:'POST',body:b});await api('/login',{method:'POST',body:b});init()}
     catch(e){$('#err').textContent=e.message}};
 }
-async function init(){yo=await api('/me');if(!yo)return;cajas=await api('/cajas');cats=await api('/categorias');cajaId=cajas.some(x=>x.id===cajaId)?cajaId:cajas[0]?.id;render()}
+async function init(){yo=await api('/me');if(!yo)return;if(yo.rol!=='admin'&&!['cierre','rend'].includes(vista))vista='cierre';cajas=await api('/cajas');cats=await api('/categorias');cajaId=cajas.some(x=>x.id===cajaId)?cajaId:cajas[0]?.id;render()}
 function render(){
   const c=cajas.find(x=>x.id===cajaId);
   if(!c&&vista!=='usr')return app.innerHTML='<div class="card">No tenés cajas asignadas. Pedile acceso al administrador. <button id="out">Salir</button></div>',$('#out').onclick=salir;
-  const TABS=[['mov','Movimientos'],['cierre','Cierre de caja'],['rend','Rendiciones'],['rep','Gastos por mes'],...(yo.rol==='admin'?[['usr','Usuarios']]:[])];
+  const TABS=yo.rol==='admin'?[['mov','Movimientos'],['cierre','Cierre de caja'],['rend','Rendiciones'],['rep','Gastos por mes'],['usr','Usuarios']]:[['cierre','Cierre de caja'],['rend','Rendiciones']];
   const kp=(l,v)=>`<div class="kpi"><small>${l}</small><b>${v}</b></div>`;
   app.innerHTML=`<header class="top"><div class="bar"><div class="brand">Caja<i>·</i>Estudio</div>
   <nav class="links">${TABS.map(([k,l])=>`<button class="${vista===k?'on':''}" data-v="${k}">${l}</button>`).join('')}</nav>
   <div class="who"><span>${esc(yo.nombre)} · ${yo.rol}</span><button id="out">Salir</button></div></div></header>
-  <section class="hero"><div class="bar"><h1>${c?'Caja '+esc(c.nombre):'Usuarios'}</h1>${c?`<div class="kpis">${kp('Saldo',fmt(c.saldo))}${kp('Ingresos del mes',fmt(c.ingresos_mes))}${kp('Gastos del mes',fmt(c.gastos_mes))}${kp('Movimientos',c.movimientos.toLocaleString('es-AR'))}</div>`:''}</div></section>
+  <section class="hero"><div class="bar"><h1>${c?'Caja '+esc(c.nombre):'Usuarios'}</h1>${c?`<div class="kpis">${kp('Saldo',fmt(c.saldo))}${yo.rol==='admin'?kp('Ingresos del mes',fmt(c.ingresos_mes))+kp('Gastos del mes',fmt(c.gastos_mes))+kp('Movimientos',c.movimientos.toLocaleString('es-AR')):''}</div>`:''}</div></section>
   <div class="shell"><aside class="side"><h4>Cajas</h4>${cajas.map(x=>`<button class="${x.id===cajaId?'on':''}" data-c="${x.id}">${esc(x.nombre)}<small>${fmt(x.saldo)}</small></button>`).join('')}</aside>
   <div class="main"><h2 class="sec">${TABS.find(t=>t[0]===vista)[1]}</h2><div id="vista"></div></div></div>`;
   app.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{cajaId=+b.dataset.c;render()});
@@ -140,21 +140,21 @@ async function vCierre(c){
 async function vRend(c){
   const [h,pv]=await Promise.all([api(`/cajas/${c.id}/rendiciones`),api(`/cajas/${c.id}/rendicion/preview`)]);
   const av=aviso;aviso='';
-  const nom=c.nombre.toLowerCase(),neto=pv.total_ingresos-pv.total_egresos,sug=neto>0&&neto<=pv.saldo?neto:pv.saldo;
+  const adm=yo.rol==='admin',nom=c.nombre.toLowerCase(),neto=adm?pv.total_ingresos-pv.total_egresos:pv.saldo,sug=neto>0&&neto<=pv.saldo?neto:pv.saldo;
   const num=(v)=>String(v/100).replace('.',','),parse=(t)=>Math.round(parseFloat(t.replace(/\./g,'').replace(',','.'))*100);
   const f=(d)=>d.split('-').reverse().join('/');
   $('#vista').innerHTML=av+`<div class="card"><h3>Realizar rendición de ${esc(nom)}</h3>
    <p class="mut">Registra el retiro en la caja y envía un email automático a: <b>${pv.destinatarios.map(esc).join(', ')||'(sin destinatarios configurados)'}</b>. Respondé "recibido" a ese email para dejar constancia.</p>
-   <p>Desde ${pv.desde?'la última rendición ('+f(pv.desde)+')':'el inicio'}: <span class="in">${fmt(pv.total_ingresos)}</span> en ${pv.ingresos} cobros y <span class="eg">${fmt(pv.total_egresos)}</span> en ${pv.egresos} egresos. Saldo actual: <b>${fmt(pv.saldo)}</b>.</p>
+   <p>${adm?`Desde ${pv.desde?'la última rendición ('+f(pv.desde)+')':'el inicio'}: <span class="in">${fmt(pv.total_ingresos)}</span> en ${pv.ingresos} cobros y <span class="eg">${fmt(pv.total_egresos)}</span> en ${pv.egresos} egresos. `:''}Saldo actual: <b>${fmt(pv.saldo)}</b>.</p>
    <div class="row"><label>Importe a rendir ($)<input id="ri" inputmode="decimal" value="${num(sug)}"></label>
    <label style="flex:2 1 220px">Nota (opcional)<input id="rn" maxlength="200" placeholder="Ej.: semana del 26/10"></label></div>
-   <p><button id="r1">Movimiento del período</button> <button id="r2">Todo el saldo</button></p>
+   <p>${adm?'<button id="r1">Movimiento del período</button> ':''}<button id="r2">Todo el saldo</button></p>
    <p id="rm" class="eg" role="status"></p><button class="p" id="rgo">Enviar rendición</button></div>
    <div class="card"><h3>Rendiciones enviadas</h3><div class="tw"><table><thead><tr><th>Fecha</th><th class="n">Importe</th><th>Enviada a</th><th>Registró</th><th>Estado</th><th></th></tr></thead><tbody>
    ${h.map(r=>`<tr><td>${f(r.fecha)}</td><td class="n">${fmt(r.importe)}</td><td class="mut">${esc(r.enviada_a)}</td><td>${esc(r.usuario||'')}</td>
    <td><span class="pill ${r.estado==='recibida'?'ok':''}">${r.estado==='recibida'?'Recibida':'Enviada'}</span></td>
    <td>${yo.rol==='admin'&&r.estado==='enviada'?`<button data-ok="${r.id}">Marcar recibida</button>`:''}</td></tr>`).join('')||'<tr><td colspan="6" class="mut">Todavía no hay rendiciones registradas desde el sistema.</td></tr>'}</tbody></table></div></div>`;
-  $('#r1').onclick=()=>$('#ri').value=num(neto>0?neto:pv.saldo);$('#r2').onclick=()=>$('#ri').value=num(pv.saldo);
+  if(adm)$('#r1').onclick=()=>$('#ri').value=num(neto>0?neto:pv.saldo);$('#r2').onclick=()=>$('#ri').value=num(pv.saldo);
   document.querySelectorAll('[data-ok]').forEach(b=>b.onclick=async()=>{await api('/rendiciones/'+b.dataset.ok+'/recibida',{method:'POST'});vRend(c)});
   let pendiente=false;const go=$('#rgo'),msg=$('#rm');
   $('#ri').oninput=()=>{pendiente=false;go.textContent='Enviar rendición';msg.textContent=''};
