@@ -25,4 +25,4 @@ El `Dockerfile` ya está listo. Requisitos:
 - Respaldo: el admin descarga una copia desde la pestaña *Usuarios*, y conviene activar los snapshots del volumen del proveedor.
 
 ## Clasificación de egresos históricos
-`src/clasificar.js` asigna el tipo de egreso por palabras clave del concepto (se aplica al importar). Para reaplicarlo sobre una base ya cargada: `node scripts/clasificar.js` (con `--ver` lista los que no matchean). Las **rendiciones** y **extracciones** son retiros de caja, no gastos: se clasifican aparte y el reporte "Gastos por mes" las excluye.
+`src/clasificar.js` asigna el tipo de egreso por palabras clave del concepto (se aplica al importar). Para reaplicarlo sobre una base ya cargada: `node scripts/clasificar.js` (con `--ver` lista los que no matchean). ATP → sellados, Secheep → servicios (luz), Miguel → diligencias (cadete). Las **rendiciones** y **extracciones** son retiros de caja, no gastos: se clasifican aparte y el reporte "Gastos por mes" las excluye.

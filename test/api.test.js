@@ -21,12 +21,16 @@ test('flujo: usuario, movimientos, saldo, cierre y reporte', async () => {
     assert.equal(lista[0].saldo, 380000);
     const c = await (await j('/cajas/1/cierres', { method: 'POST', body: { fecha: '2026-06-03', saldo_contado: 370000 } }, ck)).json();
     assert.equal(c.diferencia, -10000);
+    const id1 = lista.find((m) => m.concepto === 'Cobro').id;
+    assert.equal((await j('/movimientos/' + id1, { method: 'PUT', body: { fecha: '2026-06-02', concepto: 'Cobro corregido', importe: 600000 } }, ck)).status, 200);
+    assert.equal((await (await j('/cajas/1/movimientos', {}, ck)).json())[0].saldo, 480000);
     // operador: sólo ve su caja, no borra ni administra
     assert.equal((await j('/usuarios', { method: 'POST', body: { nombre: 'luis', password: 'clave123', rol: 'operador', cajas: [2] } }, ck)).status, 201);
     const ck2 = (await j('/login', { method: 'POST', body: { nombre: 'luis', password: 'clave123' } })).headers.get('set-cookie').split(';')[0];
     assert.deepEqual((await (await j('/cajas', {}, ck2)).json()).map((c) => c.id), [2]);
     assert.equal((await j('/cajas/1/movimientos', {}, ck2)).status, 403);
     assert.equal((await j('/movimientos/1', { method: 'DELETE' }, ck2)).status, 403);
+    assert.equal((await j('/movimientos/' + id1, { method: 'PUT', body: { fecha: '2026-06-02', concepto: 'x', importe: 1 } }, ck2)).status, 403);
     assert.equal((await j('/usuarios', {}, ck2)).status, 403);
     assert.equal((await j('/respaldo', {}, ck2)).status, 403);
     assert.equal((await j('/respaldo', {}, ck)).status, 200);

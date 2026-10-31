@@ -21,7 +21,7 @@ const fmt=(c)=>(c/100).toLocaleString('es-AR',{style:'currency',currency:'ARS'})
 const api=async(u,o={})=>{const r=await fetch('/api'+u,{headers:{'Content-Type':'application/json'},...o,body:o.body&&JSON.stringify(o.body)});
   const d=await r.json().catch(()=>({}));if(r.status===401&&u!=='/login'){return login()}if(!r.ok)throw new Error(d.error||r.status);return d};
 const esc=(s)=>String(s??'').replace(/[&<>"]/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let cajas=[],cats=[],cajaId=null,vista='mov',yo=null;
+let filas=[],editId=null,cajas=[],cats=[],cajaId=null,vista='mov',yo=null;
 
 async function login(){
   const {hayUsuarios}=await (await fetch('/api/estado')).json();
@@ -59,13 +59,18 @@ async function vMov(c){
     const rows=await api(`/cajas/${c.id}/movimientos?${p}`);
     $('#tb').innerHTML=rows.map(r=>`<tr><td>${r.fecha.split('-').reverse().join('/')}</td><td>${esc(r.concepto)}</td><td class="mut">${esc(r.categoria||'')}</td>
      <td class="n in">${r.importe>0?fmt(r.importe):''}</td><td class="n eg">${r.importe<0?fmt(-r.importe):''}</td><td class="n">${fmt(r.saldo)}</td>
-     <td>${yo.rol==='admin'?`<button data-x="${r.id}" title="Eliminar">✕</button>`:''}</td></tr>`).join('');
+     <td style="white-space:nowrap">${yo.rol==='admin'?`<button data-e="${r.id}" title="Editar">✎</button> <button data-x="${r.id}" title="Eliminar">✕</button>`:''}</td></tr>`).join('');
+    filas=rows;
+    $('#tb').querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{const r=filas.find(x=>x.id==b.dataset.e);editId=r.id;
+      $('#f').value=r.fecha;$('#t').value=r.importe>0?'1':'-1';$('#c').value=r.concepto;$('#i').value=String(Math.abs(r.importe)/100).replace('.',',');
+      $('#k').value=r.categoria_id||'';$('#add').textContent='Guardar cambios';scrollTo(0,0)});
     $('#tb').querySelectorAll('[data-x]').forEach(b=>b.onclick=async()=>{if(confirm('¿Eliminar movimiento?')){await api('/movimientos/'+b.dataset.x,{method:'DELETE'});cajas=await api('/cajas');render()}})};
   ['q','d','h'].forEach(i=>$('#'+i).oninput=load);
   $('#add').onclick=async()=>{try{
     const n=Math.round(parseFloat($('#i').value.replace(/\./g,'').replace(',','.'))*100);
     if(!n||n<0)throw new Error('Importe inválido');const s=+$('#t').value;
-    await api(`/cajas/${c.id}/movimientos`,{method:'POST',body:{fecha:$('#f').value,concepto:$('#c').value,importe:n*s,categoria_id:s<0&&$('#k').value?+$('#k').value:null}});
+    const body={fecha:$('#f').value,concepto:$('#c').value,importe:n*s,categoria_id:s<0&&$('#k').value?+$('#k').value:null};
+    if(editId){await api('/movimientos/'+editId,{method:'PUT',body});editId=null}else await api(`/cajas/${c.id}/movimientos`,{method:'POST',body});
     cajas=await api('/cajas');render()}catch(e){$('#err').textContent=e.message}};
   load();
 }

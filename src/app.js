@@ -110,6 +110,17 @@ export function crearApp(db) {
     res.status(201).json({ id: Number(r.lastInsertRowid) });
   });
 
+  app.put('/api/movimientos/:id', soloAdmin, (req, res) => {
+    const { fecha, concepto, importe, categoria_id } = req.body || {};
+    if (!FECHA.test(fecha || '') || !concepto?.trim() || !Number.isInteger(importe) || importe === 0) {
+      return res.status(400).json({ error: 'fecha (YYYY-MM-DD), concepto e importe (centavos, entero ≠ 0) requeridos' });
+    }
+    if (importe > 0 && categoria_id) return res.status(400).json({ error: 'Sólo los egresos llevan tipo de egreso' });
+    const r = db.prepare('UPDATE movimientos SET fecha=?, concepto=?, importe=?, categoria_id=? WHERE id=?')
+      .run(fecha, concepto.trim(), importe, categoria_id || null, req.params.id);
+    res.status(r.changes ? 200 : 404).json({ ok: !!r.changes });
+  });
+
   app.delete('/api/movimientos/:id', soloAdmin, (req, res) => {
     const r = db.prepare('DELETE FROM movimientos WHERE id = ?').run(req.params.id);
     res.status(r.changes ? 200 : 404).json({ ok: !!r.changes });
