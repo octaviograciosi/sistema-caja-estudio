@@ -49,6 +49,10 @@ td button{padding:3px 8px}
 .pill{display:inline-block;background:var(--soft);color:var(--soft-fg);border-radius:10px;padding:1px 9px;font-size:12px;font-weight:600}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}.row>*{flex:1 1 150px}.row label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--mut)}
 .mut{color:var(--mut)}.tw{overflow-x:auto}
+.subnav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.subnav button{border-radius:999px;padding:8px 16px}
+.subnav button.on{background:var(--ac);border-color:var(--ac);color:#fff}button:disabled{opacity:.5;cursor:not-allowed}
+.mail{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:0 0 12px}.mail dt{color:var(--mut);font-weight:600}.mail dd{margin:0;overflow-wrap:anywhere}
+.mailbody{width:100%;height:560px;border:1px solid var(--bd);border-radius:6px;background:#fff}
 .lista{max-height:420px;overflow:auto}.lista thead th{position:sticky;top:0;background:var(--card)}
 .cuenta{max-width:460px;margin:14px 0 0 auto}.cuenta td,.cuenta th{border-bottom:1px solid var(--bd);padding:6px}.cuenta tbody tr:nth-child(even){background:none}
 @media(hover:hover) and (pointer:fine){.links button:hover,.side button:hover{color:#fff}button.p:hover{background:var(--ac2);border-color:var(--ac2)}tbody tr:hover{background:var(--row-hover)}}
@@ -139,43 +143,69 @@ async function vCierre(c){
   $('#go').onclick=async()=>{try{const r=await api(`/cajas/${c.id}/cierres`,{method:'POST',body:{fecha:$('#f').value,saldo_contado:Math.round(parseFloat($('#s').value.replace(/\./g,'').replace(',','.'))*100)}});
     $('#res').textContent=`Sistema ${fmt(r.saldo_sistema)} · Contado ${fmt(r.saldo_contado)} · Diferencia ${fmt(r.diferencia)}`;vCierre(c)}catch(e){$('#res').textContent=e.message}};
 }
+let rend={sub:'prev',vp:null,imp:null,nota:''},rendCaja=null;
 async function vRend(c){
+  if(rendCaja!==c.id){rend={sub:'prev',vp:null,imp:null,nota:''};rendCaja=c.id}
   const [h,pv]=await Promise.all([api(`/cajas/${c.id}/rendiciones`),api(`/cajas/${c.id}/rendicion/preview`)]);
   const av=aviso;aviso='';
-  const nom=c.nombre.toLowerCase(),neto=pv.total_ingresos-pv.total_egresos,sug=neto>0&&neto<=pv.saldo?neto:pv.saldo;
-  const num=(v)=>String(v/100).replace('.',','),parse=(t)=>Math.round(parseFloat(t.replace(/\./g,'').replace(',','.'))*100);
+  const nom=c.nombre.toLowerCase(),neto=pv.total_ingresos-pv.total_egresos,sug=neto>0&&neto<=pv.saldo?neto:(pv.movimientos.length?pv.saldo:0);
+  const num=(v)=>String(v/100).replace('.',','),parse=(t)=>Math.round(parseFloat(String(t).replace(/\./g,'').replace(',','.'))*100);
   const f=(d)=>d.split('-').reverse().join('/');
   const desde=pv.desde?'la última rendición ('+f(pv.desde)+')':'el inicio';
-  $('#vista').innerHTML=av+`<div class="card"><h3>Operaciones que componen la rendición</h3>
-   <p class="mut">Movimientos desde ${desde}. Son los mismos que van detallados en el email.</p>
-   <div class="tw lista"><table><thead><tr><th>Fecha</th><th>Concepto</th><th class="n">Ingreso</th><th class="n">Egreso</th></tr></thead><tbody>
-   ${pv.movimientos.map(m=>`<tr><td>${f(m.fecha)}</td><td>${esc(m.concepto)}</td><td class="n in">${m.importe>0?fmt(m.importe):''}</td><td class="n eg">${m.importe<0?fmt(-m.importe):''}</td></tr>`).join('')||'<tr><td colspan="4" class="mut">No hay movimientos desde la última rendición.</td></tr>'}</tbody></table></div>
+  if(rend.imp===null)rend.imp=sug>0?num(sug):'';
+  const SUBS=[['prev','Previsualizar rendición',false],['send','Enviar rendición',!rend.vp],['hist','Enviadas',false]];
+  const menu=`<div class="subnav" role="tablist">${SUBS.map(([k,l,off])=>`<button role="tab" class="${rend.sub===k?'on':''}" data-s="${k}" ${off?'disabled title="Primero previsualizá la rendición"':''}>${l}</button>`).join('')}</div>`;
+  const listado=`<div class="card"><h3>Operaciones que componen la rendición</h3>
+   <p class="mut">Movimientos desde ${desde}, con el saldo corrido. Es la misma tabla que lleva el email.</p>
+   <div class="tw lista"><table><thead><tr><th>Fecha</th><th>Concepto</th><th class="n">Ingresos</th><th class="n">Egresos</th><th class="n">Saldo</th></tr></thead><tbody>
+   <tr><td></td><td><i>Saldo anterior ${pv.desde?'a la última rendición':'(inicio)'}</i></td><td></td><td></td><td class="n">${fmt(pv.saldo_anterior)}</td></tr>
+   ${pv.movimientos.map(m=>`<tr><td>${f(m.fecha)}</td><td>${esc(m.concepto)}</td><td class="n in">${m.importe>0?fmt(m.importe):''}</td><td class="n eg">${m.importe<0?fmt(-m.importe):''}</td><td class="n">${fmt(m.saldo)}</td></tr>`).join('')||'<tr><td colspan="5" class="mut">No hay movimientos desde la última rendición.</td></tr>'}</tbody></table></div>
    ${pv.truncado?'<p class="mut">Se muestran los últimos 500 movimientos del período.</p>':''}
-   <table class="cuenta"><tbody><tr><td>Saldo anterior ${pv.desde?'a la última rendición':'(inicio)'}</td><td class="n">${fmt(pv.saldo_anterior)}</td></tr>
-   <tr><td>+ Cobros del período (${pv.n_ingresos})</td><td class="n in">${fmt(pv.total_ingresos)}</td></tr>
+   <table class="cuenta"><tbody><tr><td>+ Cobros del período (${pv.n_ingresos})</td><td class="n in">${fmt(pv.total_ingresos)}</td></tr>
    <tr><td>− Egresos del período (${pv.n_egresos})</td><td class="n eg">${fmt(pv.total_egresos)}</td></tr>
-   <tr><th>= Saldo actual de la caja</th><th class="n">${fmt(pv.saldo)}</th></tr></tbody></table></div>
-   <div class="card"><h3>Realizar rendición de ${esc(nom)}</h3>
-   <p class="mut">Registra el retiro en la caja y envía un email automático con el detalle a: <b>${pv.destinatarios.map(esc).join(', ')||'(sin destinatarios configurados)'}</b>. Respondé "recibido" a ese email para dejar constancia.</p>
-   <div class="row"><label>Importe a rendir ($)<input id="ri" inputmode="decimal" value="${num(sug)}"></label>
-   <label style="flex:2 1 220px">Nota (opcional)<input id="rn" maxlength="200" placeholder="Ej.: semana del 26/10"></label></div>
+   <tr><th>Subtotal en caja</th><th class="n">${fmt(pv.saldo)}</th></tr></tbody></table></div>`;
+  const form=`<div class="card"><h3>Previsualizar rendición de ${esc(nom)}</h3>
+   <p class="mut">Elegí el importe y mirá el email tal como lo van a recibir. Todavía no se envía ni se descuenta nada.</p>
+   ${pv.movimientos.length?'':'<p class="mut" role="status">No hay movimientos nuevos desde la última rendición. Si querés rendir el saldo que quedó en caja, usá "Todo el saldo".</p>'}
+   <div class="row"><label>Importe a rendir ($)<input id="ri" inputmode="decimal" value="${esc(rend.imp)}"></label>
+   <label style="flex:2 1 220px">Nota (opcional)<input id="rn" maxlength="200" placeholder="Ej.: semana del 26/10" value="${esc(rend.nota)}"></label></div>
    <p><button id="r1">Movimientos del período</button> <button id="r2">Todo el saldo</button></p>
-   <p id="rm" class="eg" role="status"></p><button class="p" id="rgo">Enviar rendición</button></div>
-   <div class="card"><h3>Rendiciones enviadas</h3><div class="tw"><table><thead><tr><th>Fecha</th><th class="n">Importe</th><th>Enviada a</th><th>Registró</th><th>Estado</th><th></th></tr></thead><tbody>
+   <p id="rm" class="eg" role="status"></p><button class="p" id="rpv">Previsualizar rendición</button></div>`;
+  const vp=rend.vp,mail=vp?`<div class="card" id="vprev"><h3>Vista previa del email</h3>
+   <dl class="mail"><dt>Para</dt><dd>${vp.to.map(esc).join(', ')||'—'}</dd><dt>Cc</dt><dd>${vp.cc.map(esc).join(', ')||'—'}</dd><dt>Asunto</dt><dd>${esc(vp.subject)}</dd></dl>
+   <iframe class="mailbody" sandbox="" title="Vista previa del email" srcdoc="${esc(vp.html)}"></iframe>
+   <p><button class="p" id="rgo1">Continuar a enviar rendición →</button></p></div>`:'';
+  const enviar=vp?`<div class="card"><h3>Enviar rendición</h3>
+   <p>Se retirarán <b>${fmt(vp.importe)}</b> de la caja ${esc(nom)} y quedarán <b>${fmt(vp.restante)}</b>. Se envía el email que previsualizaste, con ${vp.operaciones} operaciones, a:</p>
+   <dl class="mail"><dt>Para</dt><dd>${vp.to.map(esc).join(', ')||'—'}</dd><dt>Cc</dt><dd>${vp.cc.map(esc).join(', ')||'—'}</dd><dt>Asunto</dt><dd>${esc(vp.subject)}</dd></dl>
+   ${vp.configurado?'':'<p class="eg" role="alert">El envío de email no está configurado en el servidor: no se puede enviar todavía.</p>'}
+   <p id="rm" class="eg" role="status"></p><button class="p" id="rsend" ${vp.configurado?'':'disabled'}>Enviar rendición</button> <button id="rback">Volver a previsualizar</button></div>`:'';
+  const hist=`<div class="card"><h3>Rendiciones enviadas</h3><div class="tw"><table><thead><tr><th>Fecha</th><th class="n">Importe</th><th>Enviada a</th><th>Registró</th><th>Estado</th><th></th></tr></thead><tbody>
    ${h.map(r=>`<tr><td>${f(r.fecha)}</td><td class="n">${fmt(r.importe)}</td><td class="mut">${esc(r.enviada_a)}</td><td>${esc(r.usuario||'')}</td>
    <td><span class="pill ${r.estado==='recibida'?'ok':''}">${r.estado==='recibida'?'Recibida':'Enviada'}</span></td>
    <td>${yo.rol==='admin'&&r.estado==='enviada'?`<button data-ok="${r.id}">Marcar recibida</button>`:''}</td></tr>`).join('')||'<tr><td colspan="6" class="mut">Todavía no hay rendiciones registradas desde el sistema.</td></tr>'}</tbody></table></div></div>`;
-  $('#r1').onclick=()=>$('#ri').value=num(neto>0&&neto<=pv.saldo?neto:pv.saldo);$('#r2').onclick=()=>$('#ri').value=num(pv.saldo);
+  $('#vista').innerHTML=av+menu+(rend.sub==='prev'?listado+form+mail:rend.sub==='send'?enviar:hist);
+  document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{rend.sub=b.dataset.s;vRend(c)});
   document.querySelectorAll('[data-ok]').forEach(b=>b.onclick=async()=>{await api('/rendiciones/'+b.dataset.ok+'/recibida',{method:'POST'});vRend(c)});
-  let pendiente=false;const go=$('#rgo'),msg=$('#rm');
-  $('#ri').oninput=()=>{pendiente=false;go.textContent='Enviar rendición';msg.textContent=''};
-  go.onclick=async()=>{const imp=parse($('#ri').value);
-    if(!imp||imp<=0)return msg.textContent='Ingresá un importe válido.';
-    if(!pendiente){pendiente=true;go.textContent='Confirmar y enviar';msg.className='mut';return msg.textContent=`Se enviará el email con las ${pv.movimientos.length} operaciones y se retirarán ${fmt(imp)} de la caja. Tocá de nuevo para confirmar.`}
-    go.disabled=true;msg.className='mut';msg.textContent='Enviando…';
-    try{const r=await api(`/cajas/${c.id}/rendicion`,{method:'POST',body:{importe:imp,nota:$('#rn').value}});
-      aviso=`<div class="card" role="status"><span class="pill ok">Enviada</span> Rendición registrada y email enviado a ${r.enviada_a.map(esc).join(', ')}.</div>`;cajas=await api('/cajas');render()}
-    catch(e){go.disabled=false;pendiente=false;go.textContent='Enviar rendición';msg.className='eg';msg.textContent=e.message}};
+  const msg=$('#rm');
+  if(rend.sub==='prev'){
+    const invalidar=()=>{rend.vp=null;rend.imp=$('#ri').value;rend.nota=$('#rn').value;$('#vprev')?.remove();document.querySelector('[data-s=send]').disabled=true;msg.textContent=''};
+    $('#ri').oninput=invalidar;$('#rn').oninput=invalidar;
+    $('#r1').onclick=()=>{$('#ri').value=num(neto>0&&neto<=pv.saldo?neto:pv.saldo);invalidar()};$('#r2').onclick=()=>{$('#ri').value=num(pv.saldo);invalidar()};
+    $('#rpv').onclick=async()=>{const imp=parse($('#ri').value);
+      if(!imp||imp<=0)return msg.textContent='Ingresá un importe válido.';
+      try{rend.imp=$('#ri').value;rend.nota=$('#rn').value;rend.vp=await api(`/cajas/${c.id}/rendicion/previsualizar`,{method:'POST',body:{importe:imp,nota:rend.nota}});await vRend(c);$('#vprev').scrollIntoView({block:'start'})}
+      catch(e){msg.className='eg';msg.textContent=e.message}};
+    $('#rgo1')?.addEventListener('click',()=>{rend.sub='send';vRend(c)});
+  }
+  if(rend.sub==='send'){
+    $('#rback').onclick=()=>{rend.sub='prev';vRend(c)};
+    $('#rsend').onclick=async()=>{const b=$('#rsend');b.disabled=true;msg.className='mut';msg.textContent='Enviando…';
+      try{const r=await api(`/cajas/${c.id}/rendicion`,{method:'POST',body:{importe:rend.vp.importe,nota:rend.nota}});
+        aviso=`<div class="card" role="status"><span class="pill ok">Enviada</span> Rendición registrada y email enviado a ${r.enviada_a.map(esc).join(', ')}.</div>`;
+        rend={sub:'hist',vp:null,imp:null,nota:''};cajas=await api('/cajas');render()}
+      catch(e){b.disabled=false;msg.className='eg';msg.textContent=e.message}};
+  }
 }
 async function vRep(c){
   const d=await api('/reportes/gastos-por-mes?caja_id='+c.id),meses=[...new Set(d.map(x=>x.mes))].sort().reverse().slice(0,12),k=[...new Set(d.map(x=>x.categoria))];

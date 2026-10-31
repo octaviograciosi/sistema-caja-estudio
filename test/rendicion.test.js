@@ -24,12 +24,18 @@ test('rendición: envía email, registra el retiro y respeta el saldo', async ()
     const pv = await (await j('/cajas/1/rendicion/preview', {}, ck)).json();
     assert.equal(pv.saldo, 900000); assert.equal(pv.n_ingresos, 1); assert.equal(pv.movimientos.length, 2); assert.equal(pv.saldo_anterior, 0); assert.equal(pv.destinatarios.length, 3);
     assert.equal((await j('/cajas/1/rendicion', { method: 'POST', body: { importe: 900001 } }, ck)).status, 400);
+    assert.deepEqual(pv.movimientos.map((m) => m.saldo), [1000000, 900000]);
+    const vp = await (await j('/cajas/1/rendicion/previsualizar', { method: 'POST', body: { importe: 900000 } }, ck)).json();
+    assert.equal(vp.operaciones, 2); assert.equal(vp.restante, 0); assert.deepEqual(vp.cc, dest.cc); assert.match(vp.html, /GASTO LIBRERIA/);
+    assert.equal(enviados.length, 0); // la vista previa no envía
+    assert.equal((await (await j('/cajas/1/rendiciones', {}, ck)).json()).length, 0);
+    assert.equal((await j('/cajas/1/rendicion/previsualizar', { method: 'POST', body: { importe: 900001 } }, ck)).status, 400);
     const r = await j('/cajas/1/rendicion', { method: 'POST', body: { importe: 900000, nota: 'semana 1' } }, ck);
     assert.equal(r.status, 201);
     assert.equal(enviados.length, 1);
     assert.deepEqual(enviados[0].to, dest.to); assert.deepEqual(enviados[0].cc, dest.cc);
     assert.match(enviados[0].subject, /^Rendición de honorarios - \d\d\/\d\d\/\d{4}$/);
-    assert.match(enviados[0].text, /COBRO UNO/); assert.match(enviados[0].text, /Saldo anterior/); assert.match(enviados[0].text, /recibido/);
+    assert.match(enviados[0].text, /COBRO UNO/); assert.match(enviados[0].text, /Saldo anterior/); assert.match(enviados[0].text, /Saldo que queda en caja: \$\s0,00/); assert.match(enviados[0].text, /recibido/);
     const lista = await (await j('/cajas/1/movimientos', {}, ck)).json();
     assert.equal(lista[0].importe, -900000); assert.equal(lista[0].categoria, 'Rendiciones'); assert.equal(lista[0].saldo, 0);
     const h = await (await j('/cajas/1/rendiciones', {}, ck)).json();

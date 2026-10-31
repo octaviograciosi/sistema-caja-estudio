@@ -153,7 +153,16 @@ export function crearApp(db, opts = {}) {
     const { periodo, ingresos, egresos, ...pv } = previsualizar(db, req.cajaId);
     // Operaciones que componen la rendición (desde la última), para todos los roles que rinden.
     res.json({ ...pv, n_ingresos: ingresos.length, n_egresos: egresos.length, destinatarios: [...dest.to, ...dest.cc],
-      movimientos: periodo.slice(-500).map(({ id, fecha, concepto, importe }) => ({ id, fecha, concepto, importe })), truncado: periodo.length > 500 });
+      movimientos: periodo.slice(-500).map(({ id, fecha, concepto, importe, saldo }) => ({ id, fecha, concepto, importe, saldo })), truncado: periodo.length > 500 });
+  });
+  // Vista previa: el mismo email que se enviará, sin registrar ni enviar nada.
+  app.post('/api/cajas/:id/rendicion/previsualizar', conCaja, (req, res) => {
+    const { importe, nota } = req.body || {};
+    const pv = previsualizar(db, req.cajaId);
+    if (!Number.isInteger(importe) || importe <= 0) return res.status(400).json({ error: 'Importe inválido' });
+    if (importe > pv.saldo) return res.status(400).json({ error: 'El importe supera el saldo de la caja' });
+    const msg = armarEmail({ pv, importe, fecha: hoyAR(), usuario: req.usuario.nombre, nota: nota?.trim() || '' });
+    res.json({ ...msg, to: dest.to, cc: dest.cc, importe, restante: pv.saldo - importe, operaciones: pv.periodo.length, configurado: !!mailer && dest.to.length > 0 });
   });
   app.get('/api/cajas/:id/rendiciones', conCaja, (req, res) => {
     res.json(db.prepare(`SELECT r.*, u.nombre usuario FROM rendiciones r LEFT JOIN usuarios u ON u.id = r.usuario_id
