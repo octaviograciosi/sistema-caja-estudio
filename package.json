@@ -1,0 +1,13 @@
+{
+  "name": "sistema-caja-estudio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "import": "node scripts/importar.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": { "node": ">=22.13" },
+  "dependencies": { "express": "4.21.2" }
+}

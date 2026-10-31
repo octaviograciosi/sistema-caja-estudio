@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Caja del Estudio</title>
+<style>
+:root{--bg:#f6f7f9;--fg:#1c2330;--card:#fff;--mut:#667;--ac:#1f6feb;--ok:#18794e;--ko:#b42318;--bd:#dde1e8}
+@media(prefers-color-scheme:dark){:root{--bg:#10141b;--fg:#e6e9ef;--card:#181e28;--mut:#98a2b3;--bd:#2a3342}}
+body{margin:0;font:15px system-ui,sans-serif;background:var(--bg);color:var(--fg)}
+main{max-width:1000px;margin:0 auto;padding:16px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:14px}
+nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+button,input,select{font:inherit;padding:7px 10px;border-radius:7px;border:1px solid var(--bd);background:var(--card);color:var(--fg)}
+button{cursor:pointer}button.p{background:var(--ac);color:#fff;border:0}button.on{border-color:var(--ac);font-weight:600}
+table{width:100%;border-collapse:collapse}th,td{padding:6px 8px;border-bottom:1px solid var(--bd);text-align:left}
+.n{text-align:right;font-variant-numeric:tabular-nums}.in{color:var(--ok)}.eg{color:var(--ko)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:end}.row>*{flex:1 1 140px}.mut{color:var(--mut)}
+.tw{overflow-x:auto}
+</style></head><body><main id="app"></main>
+<script>
+const $=(s)=>document.querySelector(s), app=$('#app');
+const fmt=(c)=>(c/100).toLocaleString('es-AR',{style:'currency',currency:'ARS'});
+const api=async(u,o={})=>{const r=await fetch('/api'+u,{headers:{'Content-Type':'application/json'},...o,body:o.body&&JSON.stringify(o.body)});
+  const d=await r.json().catch(()=>({}));if(r.status===401&&u!=='/login'){return login()}if(!r.ok)throw new Error(d.error||r.status);return d};
+const esc=(s)=>String(s??'').replace(/[&<>"]/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let cajas=[],cats=[],cajaId=null,vista='mov';
+
+async function login(){
+  const {hayUsuarios}=await (await fetch('/api/estado')).json();
+  app.innerHTML=`<div class="card" style="max-width:340px;margin:60px auto"><h2>${hayUsuarios?'Ingresar':'Crear primer usuario'}</h2>
+  <p><input id="u" placeholder="Usuario" style="width:100%;box-sizing:border-box"></p>
+  <p><input id="p" type="password" placeholder="Contraseña (mín. 6)" style="width:100%;box-sizing:border-box"></p>
+  <p id="err" class="eg"></p><button class="p" id="go">${hayUsuarios?'Entrar':'Crear y entrar'}</button></div>`;
+  $('#go').onclick=async()=>{const b={nombre:$('#u').value,password:$('#p').value};
+    try{if(!hayUsuarios)await api('/usuarios',{method:'POST',body:b});await api('/login',{method:'POST',body:b});init()}
+    catch(e){$('#err').textContent=e.message}};
+}
+async function init(){cajas=await api('/cajas');if(!cajas)return;cats=await api('/categorias');cajaId??=cajas[0].id;render()}
+function render(){
+  const c=cajas.find(x=>x.id===cajaId);
+  app.innerHTML=`<nav>${cajas.map(x=>`<button class="${x.id===cajaId?'on':''}" data-c="${x.id}">${esc(x.nombre)} · ${fmt(x.saldo)}</button>`).join('')}
+  <span style="flex:1"></span>${[['mov','Movimientos'],['cierre','Cierre de caja'],['rep','Gastos por mes']].map(([k,l])=>`<button class="${vista===k?'on':''}" data-v="${k}">${l}</button>`).join('')}</nav><div id="vista"></div>`;
+  app.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{cajaId=+b.dataset.c;render()});
+  app.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{vista=b.dataset.v;render()});
+  ({mov:vMov,cierre:vCierre,rep:vRep})[vista](c);
+}
+async function vMov(c){
+  const hoy=new Date().toISOString().slice(0,10);
+  $('#vista').innerHTML=`<div class="card"><div class="row">
+   <label>Fecha<input type="date" id="f" value="${hoy}"></label>
+   <label>Tipo<select id="t"><option value="1">Ingreso</option><option value="-1">Egreso</option></select></label>
+   <label style="flex:3 1 240px">Concepto<input id="c" style="width:100%;box-sizing:border-box"></label>
+   <label>Importe ($)<input id="i" inputmode="decimal"></label>
+   <label>Tipo de egreso<select id="k"><option value="">—</option>${cats.map(k=>`<option value="${k.id}">${esc(k.nombre)}</option>`).join('')}</select></label>
+   <button class="p" id="add">Agregar</button></div><p id="err" class="eg"></p></div>
+   <div class="card"><div class="row"><input id="q" placeholder="Buscar concepto…"><label>Desde<input type="date" id="d"></label><label>Hasta<input type="date" id="h"></label></div>
+   <div class="tw"><table><thead><tr><th>Fecha</th><th>Concepto</th><th>Tipo egreso</th><th class="n">Ingreso</th><th class="n">Egreso</th><th class="n">Saldo</th><th></th></tr></thead><tbody id="tb"></tbody></table></div></div>`;
+  const load=async()=>{const p=new URLSearchParams({q:$('#q').value,desde:$('#d').value,hasta:$('#h').value});
+    const rows=await api(`/cajas/${c.id}/movimientos?${p}`);
+    $('#tb').innerHTML=rows.map(r=>`<tr><td>${r.fecha.split('-').reverse().join('/')}</td><td>${esc(r.concepto)}</td><td class="mut">${esc(r.categoria||'')}</td>
+     <td class="n in">${r.importe>0?fmt(r.importe):''}</td><td class="n eg">${r.importe<0?fmt(-r.importe):''}</td><td class="n">${fmt(r.saldo)}</td>
+     <td><button data-x="${r.id}" title="Eliminar">✕</button></td></tr>`).join('');
+    $('#tb').querySelectorAll('[data-x]').forEach(b=>b.onclick=async()=>{if(confirm('¿Eliminar movimiento?')){await api('/movimientos/'+b.dataset.x,{method:'DELETE'});cajas=await api('/cajas');render()}})};
+  ['q','d','h'].forEach(i=>$('#'+i).oninput=load);
+  $('#add').onclick=async()=>{try{
+    const n=Math.round(parseFloat($('#i').value.replace(/\./g,'').replace(',','.'))*100);
+    if(!n||n<0)throw new Error('Importe inválido');const s=+$('#t').value;
+    await api(`/cajas/${c.id}/movimientos`,{method:'POST',body:{fecha:$('#f').value,concepto:$('#c').value,importe:n*s,categoria_id:s<0&&$('#k').value?+$('#k').value:null}});
+    cajas=await api('/cajas');render()}catch(e){$('#err').textContent=e.message}};
+  load();
+}
+async function vCierre(c){
+  const hoy=new Date().toISOString().slice(0,10),h=await api(`/cajas/${c.id}/cierres`);
+  $('#vista').innerHTML=`<div class="card"><h3>Cerrar caja ${esc(c.nombre)}</h3><div class="row"><label>Fecha<input type="date" id="f" value="${hoy}"></label>
+   <label>Efectivo contado ($)<input id="s" inputmode="decimal"></label><button class="p" id="go">Cerrar</button></div><p id="res"></p></div>
+   <div class="card"><table><thead><tr><th>Fecha</th><th class="n">Sistema</th><th class="n">Contado</th><th class="n">Diferencia</th></tr></thead><tbody>
+   ${h.map(x=>`<tr><td>${x.fecha.split('-').reverse().join('/')}</td><td class="n">${fmt(x.saldo_sistema)}</td><td class="n">${fmt(x.saldo_contado)}</td><td class="n ${x.saldo_contado-x.saldo_sistema?'eg':'in'}">${fmt(x.saldo_contado-x.saldo_sistema)}</td></tr>`).join('')}</tbody></table></div>`;
+  $('#go').onclick=async()=>{try{const r=await api(`/cajas/${c.id}/cierres`,{method:'POST',body:{fecha:$('#f').value,saldo_contado:Math.round(parseFloat($('#s').value.replace(/\./g,'').replace(',','.'))*100)}});
+    $('#res').textContent=`Sistema ${fmt(r.saldo_sistema)} · Contado ${fmt(r.saldo_contado)} · Diferencia ${fmt(r.diferencia)}`;vCierre(c)}catch(e){$('#res').textContent=e.message}};
+}
+async function vRep(c){
+  const d=await api('/reportes/gastos-por-mes?caja_id='+c.id),meses=[...new Set(d.map(x=>x.mes))].sort().reverse().slice(0,12),k=[...new Set(d.map(x=>x.categoria))];
+  const v=(m,t)=>d.find(x=>x.mes===m&&x.categoria===t)?.total||0;
+  $('#vista').innerHTML=`<div class="card tw"><h3>Gastos por mes — ${esc(c.nombre)}</h3><table><thead><tr><th>Tipo</th>${meses.map(m=>`<th class="n">${m}</th>`).join('')}</tr></thead><tbody>
+  ${k.map(t=>`<tr><td>${esc(t)}</td>${meses.map(m=>`<td class="n">${v(m,t)?fmt(v(m,t)):''}</td>`).join('')}</tr>`).join('')}
+  <tr><th>Total</th>${meses.map(m=>`<th class="n">${fmt(k.reduce((a,t)=>a+v(m,t),0))}</th>`).join('')}</tr></tbody></table></div>`;
+}
+init().catch(login);
+</script></body></html>
