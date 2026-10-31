@@ -4,8 +4,8 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap">
 <style>
 /* Estructura de panel: barra superior oscura, encabezado con cifras, menú lateral y tarjetas sobre gris claro. Azul de Ualá para acciones. */
-:root{--bg:#e9edf0;--fg:#1f2326;--card:#fff;--mut:#5f6872;--bd:#d9dee3;--row:#f4f6f8;--ac:#0054ea;--ac2:#022a9a;--soft:#e0edff;--soft-fg:#022a9a;--ok:#0f7b4f;--ko:#d6221f;--shell:#232426;--shell2:#1b1c1e;--shell-fg:#f2f3f4;--shell-mut:#a9aeb3;--or:#f08a24}
-@media(prefers-color-scheme:dark){:root{--bg:#141618;--fg:#eceef0;--card:#1f2226;--mut:#9aa3ab;--bd:#2d3237;--row:#252a2f;--ac:#4591ff;--ac2:#4591ff;--soft:#17306b;--soft-fg:#c7d8fa;--ok:#4cd391;--ko:#ff7a85;--shell:#1a1b1d;--shell2:#111213;color-scheme:dark}}
+:root{--bg:#e9edf0;--fg:#1f2326;--card:#fff;--mut:#5f6872;--bd:#d9dee3;--row:#f1f3f5;--row-hover:#e4e8ec;--ac:#0054ea;--ac2:#022a9a;--soft:#e0edff;--soft-fg:#022a9a;--ok:#0f7b4f;--ko:#d6221f;--shell:#232426;--shell2:#1b1c1e;--shell-fg:#f2f3f4;--shell-mut:#a9aeb3;--or:#f08a24}
+@media(prefers-color-scheme:dark){:root{--bg:#141618;--fg:#eceef0;--card:#1f2226;--mut:#9aa3ab;--bd:#2d3237;--row:#262b30;--row-hover:#303740;--ac:#4591ff;--ac2:#4591ff;--soft:#17306b;--soft-fg:#c7d8fa;--ok:#4cd391;--ko:#ff7a85;--shell:#1a1b1d;--shell2:#111213;color-scheme:dark}}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 :root{--ease-out:cubic-bezier(0.23,1,0.32,1)}
 body{margin:0;font:14px/1.5 'Public Sans',system-ui,sans-serif;background:var(--bg);color:var(--fg)}
@@ -42,12 +42,13 @@ input,select{transition:border-color 150ms ease}
 button.p{background:var(--ac);color:#fff;border-color:var(--ac);font-weight:600;padding:9px 20px}
 table{width:100%;border-collapse:collapse}th{font-size:11px !important;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);font-weight:600}
 th,td{padding:8px 6px;font-size:13px;border-bottom:1px solid var(--bd);text-align:left}
+tbody tr:nth-child(even){background:var(--row)}
 td button{padding:3px 8px}
 .n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}.in{color:var(--ok);font-weight:600}.eg{color:var(--ko);font-weight:600}
 .pill{display:inline-block;background:var(--soft);color:var(--soft-fg);border-radius:10px;padding:1px 9px;font-size:12px;font-weight:600}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}.row>*{flex:1 1 150px}.row label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--mut)}
 .mut{color:var(--mut)}.tw{overflow-x:auto}
-@media(hover:hover) and (pointer:fine){.links button:hover,.side button:hover{color:#fff}button.p:hover{background:var(--ac2);border-color:var(--ac2)}tbody tr:hover{background:var(--row)}}
+@media(hover:hover) and (pointer:fine){.links button:hover,.side button:hover{color:#fff}button.p:hover{background:var(--ac2);border-color:var(--ac2)}tbody tr:hover{background:var(--row-hover)}}
 @media(pointer:coarse){td button{padding:9px 13px}.links button,.side button{min-height:44px}.who button{padding:9px 14px}}
 @media(prefers-reduced-motion:reduce){button{transition:background-color 150ms ease,border-color 150ms ease,color 150ms ease}button:active{transform:none}}
 .login{max-width:380px;margin:12vh auto 0}.login h2{font-size:22px;margin:0 0 12px}
