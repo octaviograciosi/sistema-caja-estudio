@@ -26,3 +26,18 @@ El `Dockerfile` ya está listo. Requisitos:
 
 ## Clasificación de egresos históricos
 `src/clasificar.js` asigna el tipo de egreso por palabras clave del concepto (se aplica al importar). Para reaplicarlo sobre una base ya cargada: `node scripts/clasificar.js` (con `--ver` lista los que no matchean). ATP → sellados, Secheep → servicios (luz), Miguel → diligencias (cadete). Las **rendiciones** y **extracciones** son retiros de caja, no gastos: se clasifican aparte y el reporte "Gastos por mes" las excluye.
+
+## Rendiciones por email
+En la pestaña *Rendiciones* el botón **Realizar rendición de honorarios** (o de la caja que corresponda) registra el retiro en la caja y envía un email automático con el detalle desde una casilla genérica. Quien responde "recibido" deja constancia para todos; no hace falta que los destinatarios conecten su correo. Si el email no se puede enviar, la rendición **no** se registra.
+
+Variables de entorno:
+
+| Variable | Ejemplo | Para qué |
+| --- | --- | --- |
+| `SMTP_HOST` | `smtp.gmail.com` | Servidor de correo saliente |
+| `SMTP_PORT` | `465` | Puerto (465 = SSL) |
+| `SMTP_USER` | casilla genérica del estudio | Usuario de la casilla que envía |
+| `SMTP_PASS` | contraseña de aplicación | Con Gmail: verificación en 2 pasos y "contraseña de aplicación" |
+| `MAIL_FROM` | `Caja Estudio <casilla@...>` | Opcional; por defecto `SMTP_USER` |
+| `RENDICION_TO` | un email | Destinatario principal (separar con comas) |
+| `RENDICION_CC` | `a@..., b@...` | Con copia |

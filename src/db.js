@@ -46,6 +46,18 @@ export function abrirDb(ruta = process.env.DB_PATH || 'data/caja.db') {
       creado TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
     CREATE INDEX IF NOT EXISTS idx_mov_caja_fecha ON movimientos(caja_id, fecha, orden, id);
+    CREATE TABLE IF NOT EXISTS rendiciones (
+      id INTEGER PRIMARY KEY,
+      caja_id INTEGER NOT NULL REFERENCES cajas(id),
+      fecha TEXT NOT NULL,
+      importe INTEGER NOT NULL,
+      movimiento_id INTEGER REFERENCES movimientos(id) ON DELETE SET NULL,
+      enviada_a TEXT NOT NULL,
+      nota TEXT,
+      estado TEXT NOT NULL DEFAULT 'enviada' CHECK (estado IN ('enviada','recibida')),
+      usuario_id INTEGER REFERENCES usuarios(id),
+      creada TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
     CREATE TABLE IF NOT EXISTS cierres (
       id INTEGER PRIMARY KEY,
       caja_id INTEGER NOT NULL REFERENCES cajas(id),

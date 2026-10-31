@@ -2,12 +2,16 @@ import express from 'express';
 import { unlinkSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { crearMailer, destinatariosDeEnv } from './mail.js';
+import { previsualizar, armarEmail, hoyAR } from './rendicion.js';
 import { hashPassword, verificar, crearSesion, requiereLogin, soloAdmin, cajasDe } from './auth.js';
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 const COOKIE_EXTRA = process.env.NODE_ENV === 'production' ? '; Secure' : '';
 
-export function crearApp(db) {
+export function crearApp(db, opts = {}) {
+  const mailer = 'mailer' in opts ? opts.mailer : crearMailer();
+  const dest = opts.destinatarios ?? destinatariosDeEnv();
   const app = express();
   app.set('trust proxy', 1);
   app.use(express.json());
@@ -141,6 +145,40 @@ export function crearApp(db) {
   });
   app.get('/api/cajas/:id/cierres', conCaja, (req, res) => {
     res.json(db.prepare('SELECT * FROM cierres WHERE caja_id = ? ORDER BY fecha DESC LIMIT 100').all(req.cajaId));
+  });
+
+  // Rendición: registra el retiro en la caja y avisa por email (casilla genérica) a los destinatarios.
+  app.get('/api/cajas/:id/rendicion/preview', conCaja, (req, res) => {
+    const pv = previsualizar(db, req.cajaId);
+    res.json({ ...pv, ingresos: pv.ingresos.length, egresos: pv.egresos.length, destinatarios: [...dest.to, ...dest.cc] });
+  });
+  app.get('/api/cajas/:id/rendiciones', conCaja, (req, res) => {
+    res.json(db.prepare(`SELECT r.*, u.nombre usuario FROM rendiciones r LEFT JOIN usuarios u ON u.id = r.usuario_id
+      WHERE r.caja_id = ? ORDER BY r.id DESC LIMIT 100`).all(req.cajaId));
+  });
+  app.post('/api/cajas/:id/rendicion', conCaja, async (req, res) => {
+    const { importe, nota } = req.body || {};
+    const pv = previsualizar(db, req.cajaId);
+    if (!Number.isInteger(importe) || importe <= 0) return res.status(400).json({ error: 'Importe inválido' });
+    if (importe > pv.saldo) return res.status(400).json({ error: 'El importe supera el saldo de la caja' });
+    if (!mailer || !dest.to.length) return res.status(503).json({ error: 'El envío de email no está configurado' });
+    const fecha = hoyAR();
+    const msg = armarEmail({ pv, importe, fecha, usuario: req.usuario.nombre, nota: nota?.trim() || '' });
+    try { await mailer.send({ to: dest.to, cc: dest.cc, ...msg }); }
+    catch { return res.status(502).json({ error: 'No se pudo enviar el email. La rendición no se registró.' }); }
+    const cat = db.prepare("SELECT id FROM categorias WHERE nombre = 'Rendiciones'").get().id;
+    db.exec('BEGIN');
+    const mv = db.prepare(`INSERT INTO movimientos(caja_id, fecha, orden, concepto, importe, categoria_id, usuario_id)
+      VALUES (?, ?, (SELECT COALESCE(MAX(orden),0)+1 FROM movimientos WHERE caja_id = ? AND fecha = ?), ?, ?, ?, ?)`)
+      .run(req.cajaId, fecha, req.cajaId, fecha, `RENDICIÓN ${pv.caja.nombre.toUpperCase()} (ENVIADA POR EMAIL)`, -importe, cat, req.usuario.id);
+    const r = db.prepare('INSERT INTO rendiciones(caja_id, fecha, importe, movimiento_id, enviada_a, nota, usuario_id) VALUES (?,?,?,?,?,?,?)')
+      .run(req.cajaId, fecha, importe, mv.lastInsertRowid, [...dest.to, ...dest.cc].join(', '), nota?.trim() || null, req.usuario.id);
+    db.exec('COMMIT');
+    res.status(201).json({ id: Number(r.lastInsertRowid), enviada_a: [...dest.to, ...dest.cc], saldo: pv.saldo - importe });
+  });
+  app.post('/api/rendiciones/:id/recibida', soloAdmin, (req, res) => {
+    const r = db.prepare("UPDATE rendiciones SET estado = 'recibida' WHERE id = ?").run(req.params.id);
+    res.status(r.changes ? 200 : 404).json({ ok: !!r.changes });
   });
 
   app.get('/api/reportes/gastos-por-mes', conCaja, (req, res) => {

@@ -8,6 +8,11 @@
     "import": "node scripts/importar.js",
     "test": "node --test test/*.test.js"
   },
-  "engines": { "node": ">=22.13" },
-  "dependencies": { "express": "4.21.2" }
+  "engines": {
+    "node": ">=22.13"
+  },
+  "dependencies": {
+    "express": "4.21.2",
+    "nodemailer": "6.9.16"
+  }
 }
