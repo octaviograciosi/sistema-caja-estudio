@@ -2,6 +2,7 @@
 // <valores.json> = {"values": [[...]]} tal como lo devuelve la API de Google Sheets.
 import { readFileSync } from 'node:fs';
 import { abrirDb } from '../src/db.js';
+import { clasificar } from '../src/clasificar.js';
 
 const [tipo, archivo] = process.argv.slice(2);
 if (!['honorarios', 'empresa'].includes(tipo) || !archivo) {
@@ -39,7 +40,8 @@ for (const r of values.slice(1)) {
     importe = ing - Math.abs(egr);
   } else importe = centavos(r[2]);
   if (!importe) { omitidas++; continue; }
-  const cat = tipo === 'honorarios' && importe < 0 ? cats.get((r[4] || '').trim().toLowerCase()) ?? null : null;
+  const propio = tipo === 'honorarios' ? cats.get((r[4] || '').trim().toLowerCase()) : null;
+  const cat = importe < 0 ? propio ?? cats.get((clasificar(concepto) || '').toLowerCase()) ?? null : null;
   ins.run(caja, fecha, ++orden, concepto, importe, cat); n++;
 }
 db.exec('COMMIT');

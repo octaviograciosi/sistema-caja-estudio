@@ -131,7 +131,7 @@ export function crearApp(db) {
   app.get('/api/reportes/gastos-por-mes', conCaja, (req, res) => {
     res.json(db.prepare(`SELECT substr(m.fecha,1,7) mes, COALESCE(c.nombre,'Sin tipo') categoria, -SUM(m.importe) total
       FROM movimientos m LEFT JOIN categorias c ON c.id = m.categoria_id
-      WHERE m.importe < 0 AND m.caja_id = ?
+      WHERE m.importe < 0 AND m.caja_id = ? AND COALESCE(c.nombre,'') NOT IN ('Rendiciones','Extracciones') -- retiros de caja, no gastos
       GROUP BY mes, categoria ORDER BY mes DESC, categoria`).all(req.cajaId));
   });
 

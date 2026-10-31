@@ -6,6 +6,7 @@ export const CATEGORIAS = [
   'Alquiler', 'Expensas', 'Diligencias (cadete)', 'Diligencias (tickets organismos, etc.)',
   'Servicio de limpieza', 'Librería', 'Tóners', 'Productos de limpieza y varios',
   'Servicios (luz, internet, etc.)', 'Otros', 'Extracciones', 'Rendiciones',
+  'ATP', 'Secheep', 'Miguel', 'Devoluciones',
 ];
 
 export function abrirDb(ruta = process.env.DB_PATH || 'data/caja.db') {
