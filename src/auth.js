@@ -26,10 +26,19 @@ export function requiereLogin(db) {
   return (req, res, next) => {
     const token = leerCookie(req, 'sesion');
     const u = token && db.prepare(
-      'SELECT u.id, u.nombre FROM sesiones s JOIN usuarios u ON u.id = s.usuario_id WHERE s.token = ?',
+      'SELECT u.id, u.nombre, u.rol FROM sesiones s JOIN usuarios u ON u.id = s.usuario_id WHERE s.token = ?',
     ).get(token);
     if (!u) return res.status(401).json({ error: 'No autenticado' });
     req.usuario = u;
     next();
   };
+}
+
+export const soloAdmin = (req, res, next) =>
+  req.usuario.rol === 'admin' ? next() : res.status(403).json({ error: 'Requiere administrador' });
+
+export function cajasDe(db, u) {
+  return u.rol === 'admin'
+    ? db.prepare('SELECT id FROM cajas').all().map((c) => c.id)
+    : db.prepare('SELECT caja_id id FROM usuario_cajas WHERE usuario_id = ?').all(u.id).map((c) => c.id);
 }

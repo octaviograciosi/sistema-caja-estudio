@@ -21,7 +21,7 @@ const fmt=(c)=>(c/100).toLocaleString('es-AR',{style:'currency',currency:'ARS'})
 const api=async(u,o={})=>{const r=await fetch('/api'+u,{headers:{'Content-Type':'application/json'},...o,body:o.body&&JSON.stringify(o.body)});
   const d=await r.json().catch(()=>({}));if(r.status===401&&u!=='/login'){return login()}if(!r.ok)throw new Error(d.error||r.status);return d};
 const esc=(s)=>String(s??'').replace(/[&<>"]/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let cajas=[],cats=[],cajaId=null,vista='mov';
+let cajas=[],cats=[],cajaId=null,vista='mov',yo=null;
 
 async function login(){
   const {hayUsuarios}=await (await fetch('/api/estado')).json();
@@ -33,14 +33,16 @@ async function login(){
     try{if(!hayUsuarios)await api('/usuarios',{method:'POST',body:b});await api('/login',{method:'POST',body:b});init()}
     catch(e){$('#err').textContent=e.message}};
 }
-async function init(){cajas=await api('/cajas');if(!cajas)return;cats=await api('/categorias');cajaId??=cajas[0].id;render()}
+async function init(){yo=await api('/me');if(!yo)return;cajas=await api('/cajas');cats=await api('/categorias');cajaId=cajas.some(x=>x.id===cajaId)?cajaId:cajas[0]?.id;render()}
 function render(){
   const c=cajas.find(x=>x.id===cajaId);
+  if(!c&&vista!=='usr')return app.innerHTML='<div class="card">No tenés cajas asignadas. Pedile acceso al administrador. <button id="out">Salir</button></div>',$('#out').onclick=salir;
   app.innerHTML=`<nav>${cajas.map(x=>`<button class="${x.id===cajaId?'on':''}" data-c="${x.id}">${esc(x.nombre)} · ${fmt(x.saldo)}</button>`).join('')}
-  <span style="flex:1"></span>${[['mov','Movimientos'],['cierre','Cierre de caja'],['rep','Gastos por mes']].map(([k,l])=>`<button class="${vista===k?'on':''}" data-v="${k}">${l}</button>`).join('')}</nav><div id="vista"></div>`;
+  <span style="flex:1"></span>${[['mov','Movimientos'],['cierre','Cierre de caja'],['rep','Gastos por mes'],...(yo.rol==='admin'?[['usr','Usuarios']]:[])].map(([k,l])=>`<button class="${vista===k?'on':''}" data-v="${k}">${l}</button>`).join('')}<button id="out" title="${esc(yo.nombre)}">Salir</button></nav><div id="vista"></div>`;
   app.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{cajaId=+b.dataset.c;render()});
   app.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{vista=b.dataset.v;render()});
-  ({mov:vMov,cierre:vCierre,rep:vRep})[vista](c);
+  $('#out').onclick=salir;
+  ({mov:vMov,cierre:vCierre,rep:vRep,usr:vUsr})[vista](c);
 }
 async function vMov(c){
   const hoy=new Date().toISOString().slice(0,10);
@@ -57,7 +59,7 @@ async function vMov(c){
     const rows=await api(`/cajas/${c.id}/movimientos?${p}`);
     $('#tb').innerHTML=rows.map(r=>`<tr><td>${r.fecha.split('-').reverse().join('/')}</td><td>${esc(r.concepto)}</td><td class="mut">${esc(r.categoria||'')}</td>
      <td class="n in">${r.importe>0?fmt(r.importe):''}</td><td class="n eg">${r.importe<0?fmt(-r.importe):''}</td><td class="n">${fmt(r.saldo)}</td>
-     <td><button data-x="${r.id}" title="Eliminar">✕</button></td></tr>`).join('');
+     <td>${yo.rol==='admin'?`<button data-x="${r.id}" title="Eliminar">✕</button>`:''}</td></tr>`).join('');
     $('#tb').querySelectorAll('[data-x]').forEach(b=>b.onclick=async()=>{if(confirm('¿Eliminar movimiento?')){await api('/movimientos/'+b.dataset.x,{method:'DELETE'});cajas=await api('/cajas');render()}})};
   ['q','d','h'].forEach(i=>$('#'+i).oninput=load);
   $('#add').onclick=async()=>{try{
@@ -82,6 +84,23 @@ async function vRep(c){
   $('#vista').innerHTML=`<div class="card tw"><h3>Gastos por mes — ${esc(c.nombre)}</h3><table><thead><tr><th>Tipo</th>${meses.map(m=>`<th class="n">${m}</th>`).join('')}</tr></thead><tbody>
   ${k.map(t=>`<tr><td>${esc(t)}</td>${meses.map(m=>`<td class="n">${v(m,t)?fmt(v(m,t)):''}</td>`).join('')}</tr>`).join('')}
   <tr><th>Total</th>${meses.map(m=>`<th class="n">${fmt(k.reduce((a,t)=>a+v(m,t),0))}</th>`).join('')}</tr></tbody></table></div>`;
+}
+async function salir(){await api('/logout',{method:'POST'}).catch(()=>{});location.reload()}
+async function vUsr(){
+  const us=await api('/usuarios');
+  $('#vista').innerHTML=`<div class="card"><h3>Usuarios</h3><div class="tw"><table><thead><tr><th>Usuario</th><th>Rol</th><th>Cajas</th><th></th></tr></thead><tbody>
+  ${us.map(u=>`<tr><td>${esc(u.nombre)}</td><td><select data-r="${u.id}"><option ${u.rol==='operador'?'selected':''}>operador</option><option ${u.rol==='admin'?'selected':''}>admin</option></select></td>
+  <td>${cajas.map(c=>`<label><input type="checkbox" data-k="${u.id}" value="${c.id}" ${u.cajas.includes(c.id)?'checked':''}> ${esc(c.nombre)}</label> `).join('')}</td>
+  <td><button data-s="${u.id}">Guardar</button> <button data-p="${u.id}">Nueva clave</button></td></tr>`).join('')}</tbody></table></div></div>
+  <div class="card"><h3>Agregar usuario</h3><div class="row"><input id="n" placeholder="Usuario"><input id="pw" type="password" placeholder="Contraseña (mín. 6)">
+  <select id="ro"><option>operador</option><option>admin</option></select><button class="p" id="nu">Crear</button></div>
+  <p class="mut">Los operadores pueden cargar movimientos y cerrar caja sólo en las cajas asignadas; no eliminan ni administran usuarios.</p><p id="err" class="eg"></p></div>
+  <div class="card"><h3>Respaldo</h3><a href="/api/respaldo"><button>Descargar copia de la base</button></a></div>`;
+  const run=async(f)=>{try{await f();vUsr()}catch(e){$('#err').textContent=e.message}};
+  $('#nu').onclick=()=>run(async()=>{await api('/usuarios',{method:'POST',body:{nombre:$('#n').value,password:$('#pw').value,rol:$('#ro').value}})});
+  document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>run(()=>{const id=b.dataset.s;
+    return api('/usuarios/'+id,{method:'PUT',body:{rol:document.querySelector(`[data-r="${id}"]`).value,cajas:[...document.querySelectorAll(`[data-k="${id}"]:checked`)].map(x=>+x.value)}})}));
+  document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>run(async()=>{const pw=prompt('Nueva contraseña (mín. 6):');if(pw)await api('/usuarios/'+b.dataset.p,{method:'PUT',body:{password:pw}})}));
 }
 init().catch(login);
 </script></body></html>

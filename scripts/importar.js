@@ -30,8 +30,9 @@ db.exec('BEGIN');
 for (const r of values.slice(1)) {
   const f = fechaISO(r[0]);
   if (f) { fecha = f; orden = 0; }
-  const concepto = (tipo === 'honorarios' ? r[5] : r[1])?.trim();
-  if (!concepto || !fecha || /^INICIO$/i.test(concepto) || /^Hay en caja/i.test(concepto)) { omitidas++; continue; }
+  const texto = (tipo === 'honorarios' ? r[5] : r[1])?.trim() || '';
+  if (!fecha || /^INICIO$/i.test(texto) || /^Hay en caja/i.test(texto)) { omitidas++; continue; }
+  const concepto = texto || '(sin concepto)'; // en la planilla hay filas con importe y sin concepto
   let importe;
   if (tipo === 'honorarios') {
     const ing = centavos(r[6]) ?? 0, egr = centavos(r[7]) ?? 0;

@@ -20,7 +20,13 @@ export function abrirDb(ruta = process.env.DB_PATH || 'data/caja.db') {
       id INTEGER PRIMARY KEY, nombre TEXT NOT NULL UNIQUE
     );
     CREATE TABLE IF NOT EXISTS usuarios (
-      id INTEGER PRIMARY KEY, nombre TEXT NOT NULL UNIQUE, hash TEXT NOT NULL
+      id INTEGER PRIMARY KEY, nombre TEXT NOT NULL UNIQUE, hash TEXT NOT NULL,
+      rol TEXT NOT NULL DEFAULT 'operador' CHECK (rol IN ('admin','operador'))
+    );
+    CREATE TABLE IF NOT EXISTS usuario_cajas (
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      caja_id INTEGER NOT NULL REFERENCES cajas(id),
+      PRIMARY KEY (usuario_id, caja_id)
     );
     CREATE TABLE IF NOT EXISTS sesiones (
       token TEXT PRIMARY KEY, usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
